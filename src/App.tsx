@@ -3,7 +3,7 @@ import { SyncBanners } from './components/SyncBanners'
 import { SyncStatus } from './components/SyncStatus'
 import { Dashboard } from './pages/Dashboard'
 import { DataPage } from './pages/DataPage'
-import { Materials } from './pages/Materials'
+import { MaterialFolder, Materials } from './pages/Materials'
 import { StudentDetail } from './pages/StudentDetail'
 import { StudentForm } from './pages/StudentForm'
 import { Students } from './pages/Students'
@@ -39,6 +39,7 @@ export default function App() {
             <Route path="/students/:id" element={<StudentDetail />} />
             <Route path="/students/:id/edit" element={<StudentForm />} />
             <Route path="/materials" element={<Materials />} />
+            <Route path="/materials/:folder" element={<MaterialFolder />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

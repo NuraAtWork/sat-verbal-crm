@@ -883,58 +883,102 @@ tr.clickable:hover td {
   }
 }
 
-/* Materials: strips */
+/* Materials: folders */
 
 .field.grow-2 {
   flex: 2;
 }
 
-.strip {
+.folders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.folder:hover {
+  text-decoration: none;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.folder-icon {
+  width: 48px;
+  height: 40px;
+  flex: none;
+}
+
+.folder-back {
+  fill: var(--accent);
+  opacity: 0.55;
+}
+
+.folder-front {
+  fill: var(--accent);
+}
+
+.folder-tests .folder-back,
+.folder-tests .folder-front {
+  fill: var(--ok);
+}
+
+.folder-other .folder-back,
+.folder-other .folder-front {
+  fill: var(--muted);
+}
+
+.folder-text {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
   min-width: 0;
 }
 
-.strip + .strip {
-  margin-top: 12px;
+.folder-name {
+  font-weight: 600;
+  font-size: 1.05rem;
 }
 
-.strip-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.strip-head h2 {
-  margin: 0;
-}
-
-.strip-head h2 .muted {
-  font-weight: 500;
-  margin-left: 4px;
-}
-
-.strip-row {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 2px 2px 10px;
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-}
-
-.strip-empty {
+.folder-empty {
   margin: 0;
   padding: 18px 20px;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
 }
 
-.strip-card {
-  flex: 0 0 240px;
-  scroll-snap-align: start;
+.breadcrumbs {
+  display: flex;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.h1-count {
+  font-weight: 500;
+  font-size: 1.1rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.mcard {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1044,10 +1088,6 @@ tr.clickable:hover td {
 }
 
 /* Карточки тестов */
-
-.test-card {
-  flex-basis: 220px;
-}
 
 .test-title {
   font-weight: 600;
