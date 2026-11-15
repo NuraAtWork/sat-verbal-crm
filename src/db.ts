@@ -43,6 +43,8 @@ export type Action =
   | { type: 'material/upsert'; material: Material }
   | { type: 'material/delete'; id: string }
   | { type: 'db/replace'; db: Db }
+  /** Добавить записи из db: с тем же id — обновить, новые — добавить, ничего не удалять */
+  | { type: 'db/merge'; db: Db }
 
 function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   const i = list.findIndex((x) => x.id === item.id)
@@ -77,6 +79,14 @@ export function reducer(db: Db, action: Action): Db {
       return { ...db, materials: db.materials.filter((m) => m.id !== action.id) }
     case 'db/replace':
       return action.db
+    case 'db/merge':
+      return {
+        ...db,
+        students: action.db.students.reduce(upsert, db.students),
+        lessons: action.db.lessons.reduce(upsert, db.lessons),
+        scores: action.db.scores.reduce(upsert, db.scores),
+        materials: action.db.materials.reduce(upsert, db.materials),
+      }
   }
 }
 

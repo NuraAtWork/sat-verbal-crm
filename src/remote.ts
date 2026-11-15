@@ -212,5 +212,12 @@ export async function applyRemote(sb: SupabaseClient, action: Action): Promise<v
       await inChunks(action.db.scores.map(scoreToRow), (c) => sb.from('scores').insert(c))
       await inChunks(action.db.materials.map(materialToRow), (c) => sb.from('materials').insert(c))
       return
+    case 'db/merge':
+      // Порядок важен: уроки и тесты ссылаются на учеников.
+      await inChunks(action.db.students.map(studentToRow), (c) => sb.from('students').upsert(c))
+      await inChunks(action.db.lessons.map(lessonToRow), (c) => sb.from('lessons').upsert(c))
+      await inChunks(action.db.scores.map(scoreToRow), (c) => sb.from('scores').upsert(c))
+      await inChunks(action.db.materials.map(materialToRow), (c) => sb.from('materials').upsert(c))
+      return
   }
 }

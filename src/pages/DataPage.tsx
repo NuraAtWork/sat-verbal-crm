@@ -8,7 +8,14 @@ export function DataPage() {
   const { db, dispatch, sync } = useStore()
   const cloud = sync.mode === 'cloud'
   const fileRef = useRef<HTMLInputElement>(null)
+  // merge — дописать к текущим; replace — восстановить копию целиком
+  const importMode = useRef<'merge' | 'replace'>('merge')
   const [message, setMessage] = useState('')
+
+  const pickFile = (mode: 'merge' | 'replace') => {
+    importMode.current = mode
+    fileRef.current?.click()
+  }
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' })
@@ -30,9 +37,24 @@ export function DataPage() {
         setMessage('Файл не похож на резервную копию этой CRM.')
         return
       }
-      if (!confirm('Заменить текущие данные содержимым файла?')) return
-      dispatch({ type: 'db/replace', db: parsed })
-      setMessage(`Импортировано: ${parsed.students.length} учеников, ${parsed.lessons.length} уроков.`)
+      const counts =
+        [
+          [parsed.students.length, 'учеников'],
+          [parsed.lessons.length, 'уроков'],
+          [parsed.scores.length, 'тестов'],
+          [parsed.materials.length, 'материалов'],
+        ]
+          .filter(([n]) => n)
+          .map(([n, label]) => `${label}: ${n}`)
+          .join(', ') || 'пустой файл'
+      if (importMode.current === 'replace') {
+        if (!confirm(`Заменить ВСЕ текущие данные содержимым файла (${counts})?`)) return
+        dispatch({ type: 'db/replace', db: parsed })
+        setMessage(`Восстановлено из копии: ${counts}.`)
+      } else {
+        dispatch({ type: 'db/merge', db: parsed })
+        setMessage(`Добавлено или обновлено: ${counts}. Остальные данные не тронуты.`)
+      }
     } catch {
       setMessage('Не удалось прочитать файл.')
     }
@@ -80,11 +102,25 @@ export function DataPage() {
           <button className="btn btn-primary" onClick={exportJson}>
             Экспорт в JSON
           </button>
-          <button className="btn" onClick={() => fileRef.current?.click()}>
-            Импорт из JSON
+          <button className="btn" onClick={() => pickFile('replace')}>
+            Восстановить из копии
           </button>
-          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importJson} />
         </div>
+        <p className="muted small">«Восстановить» заменяет все текущие данные содержимым файла.</p>
+      </section>
+
+      <section className="card">
+        <h2>Добавить из файла</h2>
+        <p className="muted small">
+          Записи из JSON-файла добавятся к текущим: совпадающие (по id) обновятся, новые добавятся, ничего не
+          удаляется. Подходит для готовых наборов материалов.
+        </p>
+        <div className="row">
+          <button className="btn" onClick={() => pickFile('merge')}>
+            Выбрать файл…
+          </button>
+        </div>
+        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importJson} />
       </section>
 
       <section className="card">
