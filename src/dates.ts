@@ -1,0 +1,54 @@
+/** Сегодняшняя дата в локальном часовом поясе, формат YYYY-MM-DD. */
+export function today(): string {
+  return toIsoDate(new Date())
+}
+
+export function toIsoDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+export function addDays(iso: string, days: number): string {
+  const d = parseIso(iso)
+  d.setDate(d.getDate() + days)
+  return toIsoDate(d)
+}
+
+function parseIso(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+export function formatDate(iso: string): string {
+  if (!iso) return '—'
+  return parseIso(iso).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+/** Сколько дней от сегодня до даты (отрицательное — дата в прошлом). */
+export function daysUntil(iso: string): number {
+  const ms = parseIso(iso).getTime() - parseIso(today()).getTime()
+  return Math.round(ms / 86_400_000)
+}
+
+export function pluralDays(n: number): string {
+  const abs = Math.abs(n) % 100
+  const last = abs % 10
+  if (abs > 10 && abs < 20) return 'дней'
+  if (last === 1) return 'день'
+  if (last >= 2 && last <= 4) return 'дня'
+  return 'дней'
+}
+
+export function describeExam(iso: string): string {
+  if (!iso) return '—'
+  const n = daysUntil(iso)
+  if (n === 0) return 'сегодня'
+  if (n > 0) return `через ${n} ${pluralDays(n)}`
+  return `прошёл ${-n} ${pluralDays(n)} назад`
+}
