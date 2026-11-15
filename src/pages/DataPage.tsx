@@ -5,7 +5,8 @@ import { emptyDb, isDb } from '../db'
 import { useStore } from '../useStore'
 
 export function DataPage() {
-  const { db, dispatch } = useStore()
+  const { db, dispatch, sync } = useStore()
+  const cloud = sync.mode === 'cloud'
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
 
@@ -44,7 +45,8 @@ export function DataPage() {
   }
 
   const clearAll = () => {
-    if (!confirm('Удалить все данные в этом браузере? Сначала лучше сделать экспорт.')) return
+    const where = cloud ? 'в облаке' : 'в этом браузере'
+    if (!confirm(`Удалить все данные ${where}? Отменить это нельзя — сначала лучше сделать экспорт.`)) return
     dispatch({ type: 'db/replace', db: emptyDb() })
     setMessage('Данные очищены.')
   }
@@ -55,10 +57,17 @@ export function DataPage() {
 
       <section className="card">
         <h2>Где хранятся данные</h2>
-        <p>
-          Сейчас всё хранится только в этом браузере (localStorage): на другом устройстве данных не будет, а
-          очистка браузера их сотрёт. Регулярно делайте экспорт — это резервная копия в JSON.
-        </p>
+        {cloud ? (
+          <p>
+            Данные хранятся в облаке (Supabase) и доступны с любого устройства после входа. Экспорт в JSON —
+            дополнительная резервная копия на всякий случай.
+          </p>
+        ) : (
+          <p>
+            Сейчас всё хранится только в этом браузере (localStorage): на другом устройстве данных не будет, а
+            очистка браузера их сотрёт. Регулярно делайте экспорт — это резервная копия в JSON.
+          </p>
+        )}
         <p className="muted small">
           Сейчас: {db.students.length} учеников · {db.lessons.length} уроков · {db.scores.length} тестов
         </p>

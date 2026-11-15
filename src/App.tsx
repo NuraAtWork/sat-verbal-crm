@@ -1,4 +1,6 @@
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { SyncBanners } from './components/SyncBanners'
+import { SyncStatus } from './components/SyncStatus'
 import { Dashboard } from './pages/Dashboard'
 import { DataPage } from './pages/DataPage'
 import { StudentDetail } from './pages/StudentDetail'
@@ -24,8 +26,10 @@ export default function App() {
             <NavLink to="/students">Ученики</NavLink>
             <NavLink to="/data">Данные</NavLink>
           </nav>
+          <SyncStatus />
         </aside>
         <main className="main">
+          <SyncBanners />
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/students" element={<Students />} />

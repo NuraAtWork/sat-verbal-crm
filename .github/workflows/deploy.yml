@@ -26,6 +26,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+        env:
+          # Публичные значения (URL проекта и publishable key) — задаются в
+          # Settings → Secrets and variables → Actions → Variables.
+          # Если не заданы, сайт соберётся в локальном режиме (localStorage).
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
