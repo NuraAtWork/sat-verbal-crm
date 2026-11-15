@@ -880,3 +880,65 @@ tr.clickable:hover td {
     display: none;
   }
 }
+
+/* Materials */
+
+.skill-select {
+  width: auto;
+  max-width: 260px;
+}
+
+.field.grow-2 {
+  flex: 2;
+}
+
+.materials {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.material {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+}
+
+.material-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.material-title {
+  font-weight: 600;
+}
+
+.material .link-btn {
+  margin-left: 0;
+}
+
+.badge-kind {
+  background: var(--grey-soft);
+  color: var(--muted);
+}
+
+.badge-kind-test {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge-kind-practice {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.badge-kind-vocab {
+  background: var(--warn-soft);
+  color: var(--warn);
+}

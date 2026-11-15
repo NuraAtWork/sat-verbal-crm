@@ -116,3 +116,33 @@ create policy "scores: own rows" on public.scores
       where s.id = student_id and s.owner_id = (select auth.uid())
     )
   );
+
+-- Материалы (библиотека: тесты, сеты, словари, теория, видео) ----------------
+create table if not exists public.materials (
+  id          uuid primary key,
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title       text not null,
+  url         text not null default '',
+  kind        text not null default 'other'
+              check (kind in ('test', 'practice', 'vocab', 'theory', 'video', 'other')),
+  skills      text[] not null default '{}',
+  notes       text not null default '',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists materials_owner_idx on public.materials (owner_id);
+
+drop trigger if exists materials_touch on public.materials;
+create trigger materials_touch before update on public.materials
+  for each row execute function public.touch_updated_at();
+
+alter table public.materials enable row level security;
+revoke all on public.materials from anon;
+grant select, insert, update, delete on public.materials to authenticated;
+
+drop policy if exists "materials: own rows" on public.materials;
+create policy "materials: own rows" on public.materials
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));

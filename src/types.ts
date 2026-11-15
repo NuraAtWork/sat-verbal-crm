@@ -43,9 +43,24 @@ export interface ScoreEntry {
   notes: string
 }
 
+export type MaterialKind = 'test' | 'practice' | 'vocab' | 'theory' | 'video' | 'other'
+
+export interface Material {
+  id: string
+  title: string
+  /** Ссылка на файл/страницу (Google Drive, сайт и т.п.), может быть пустой */
+  url: string
+  kind: MaterialKind
+  /** id навыков из SKILLS */
+  skills: string[]
+  notes: string
+  createdAt: string
+}
+
 export interface Db {
   version: 1
   students: Student[]
   lessons: Lesson[]
   scores: ScoreEntry[]
+  materials: Material[]
 }

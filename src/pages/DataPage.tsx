@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { today } from '../dates'
 import { demoDb } from '../demo'
-import { emptyDb, isDb } from '../db'
+import { emptyDb, normalizeDb } from '../db'
 import { useStore } from '../useStore'
 
 export function DataPage() {
@@ -25,8 +25,8 @@ export function DataPage() {
     e.target.value = ''
     if (!file) return
     try {
-      const parsed: unknown = JSON.parse(await file.text())
-      if (!isDb(parsed)) {
+      const parsed = normalizeDb(JSON.parse(await file.text()))
+      if (!parsed) {
         setMessage('Файл не похож на резервную копию этой CRM.')
         return
       }
@@ -69,7 +69,8 @@ export function DataPage() {
           </p>
         )}
         <p className="muted small">
-          Сейчас: {db.students.length} учеников · {db.lessons.length} уроков · {db.scores.length} тестов
+          Сейчас: {db.students.length} учеников · {db.lessons.length} уроков · {db.scores.length} тестов ·{' '}
+          {db.materials.length} материалов
         </p>
       </section>
 

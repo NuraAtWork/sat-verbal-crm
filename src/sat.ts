@@ -1,4 +1,4 @@
-import type { StudentStatus } from './types'
+import type { MaterialKind, StudentStatus } from './types'
 
 /** Домены и навыки секции Reading & Writing цифрового SAT. */
 export const DOMAINS = [
@@ -55,6 +55,30 @@ export const STATUS_LABELS: Record<StudentStatus, string> = {
 }
 
 export const STATUSES = Object.keys(STATUS_LABELS) as StudentStatus[]
+
+export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
+  test: 'Пробный тест',
+  practice: 'Практика',
+  vocab: 'Словарь',
+  theory: 'Теория',
+  video: 'Видео',
+  other: 'Другое',
+}
+
+export const MATERIAL_KINDS = Object.keys(MATERIAL_KIND_LABELS) as MaterialKind[]
+
+/** Ссылка для href: только http(s); «example.com/x» дополняется до https://. Иначе null. */
+export function safeUrl(raw: string): string | null {
+  const url = raw.trim()
+  if (!url) return null
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`
+  try {
+    const parsed = new URL(withScheme)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null
+  } catch {
+    return null
+  }
+}
 
 export const MIN_SCORE = 200
 export const MAX_SCORE = 800

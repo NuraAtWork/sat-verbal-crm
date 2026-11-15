@@ -1,26 +1,33 @@
-import type { Db, Lesson, ScoreEntry, Student } from './types'
+import type { Db, Lesson, Material, ScoreEntry, Student } from './types'
 
 export const STORAGE_KEY = 'sat-verbal-crm:v1'
 
-export const emptyDb = (): Db => ({ version: 1, students: [], lessons: [], scores: [] })
+export const emptyDb = (): Db => ({ version: 1, students: [], lessons: [], scores: [], materials: [] })
 
-export function isDb(value: unknown): value is Db {
-  if (!value || typeof value !== 'object') return false
+/**
+ * Проверяет сохранённые/импортированные данные и дополняет поля,
+ * которых не было в старых версиях (например, materials). null — если формат чужой.
+ */
+export function normalizeDb(value: unknown): Db | null {
+  if (!value || typeof value !== 'object') return null
   const v = value as Record<string, unknown>
-  return (
-    v.version === 1 &&
-    Array.isArray(v.students) &&
-    Array.isArray(v.lessons) &&
-    Array.isArray(v.scores)
-  )
+  if (v.version !== 1 || !Array.isArray(v.students) || !Array.isArray(v.lessons) || !Array.isArray(v.scores)) {
+    return null
+  }
+  return {
+    version: 1,
+    students: v.students as Student[],
+    lessons: v.lessons as Lesson[],
+    scores: v.scores as ScoreEntry[],
+    materials: Array.isArray(v.materials) ? (v.materials as Material[]) : [],
+  }
 }
 
 export function load(): Db {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyDb()
-    const parsed: unknown = JSON.parse(raw)
-    return isDb(parsed) ? parsed : emptyDb()
+    return normalizeDb(JSON.parse(raw)) ?? emptyDb()
   } catch {
     return emptyDb()
   }
@@ -33,6 +40,8 @@ export type Action =
   | { type: 'lesson/delete'; id: string }
   | { type: 'score/upsert'; score: ScoreEntry }
   | { type: 'score/delete'; id: string }
+  | { type: 'material/upsert'; material: Material }
+  | { type: 'material/delete'; id: string }
   | { type: 'db/replace'; db: Db }
 
 function upsert<T extends { id: string }>(list: T[], item: T): T[] {
@@ -62,6 +71,10 @@ export function reducer(db: Db, action: Action): Db {
       return { ...db, scores: upsert(db.scores, action.score) }
     case 'score/delete':
       return { ...db, scores: db.scores.filter((s) => s.id !== action.id) }
+    case 'material/upsert':
+      return { ...db, materials: upsert(db.materials, action.material) }
+    case 'material/delete':
+      return { ...db, materials: db.materials.filter((m) => m.id !== action.id) }
     case 'db/replace':
       return action.db
   }
