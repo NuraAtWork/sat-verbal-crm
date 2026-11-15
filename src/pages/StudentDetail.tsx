@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { StudentAssignments } from '../components/Assignments'
 import { ScoreChart } from '../components/ScoreChart'
 import { StatusBadge } from '../components/StatusBadge'
 import { describeExam, formatDate, today } from '../dates'
@@ -85,6 +86,11 @@ export function StudentDetail() {
           <SkillCoverage lessons={lessons} />
         </section>
       </div>
+
+      <section className="card">
+        <h2>Задания</h2>
+        <StudentAssignments student={student} />
+      </section>
 
       <section className="card">
         <h2>Прогресс R&W</h2>

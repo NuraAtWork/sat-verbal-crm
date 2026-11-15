@@ -4,6 +4,7 @@ import { SyncStatus } from './components/SyncStatus'
 import { Dashboard } from './pages/Dashboard'
 import { DataPage } from './pages/DataPage'
 import { MaterialFolder, Materials } from './pages/Materials'
+import { SetViewer } from './pages/SetViewer'
 import { StudentDetail } from './pages/StudentDetail'
 import { StudentForm } from './pages/StudentForm'
 import { Students } from './pages/Students'
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/students/:id/edit" element={<StudentForm />} />
             <Route path="/materials" element={<Materials />} />
             <Route path="/materials/:folder" element={<MaterialFolder />} />
+            <Route path="/sets/:id" element={<SetViewer />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

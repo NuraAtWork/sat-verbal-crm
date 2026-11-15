@@ -114,6 +114,7 @@ interface MaterialRow {
   skills: string[]
   notes: string
   created_at: string
+  set_id: string | null
 }
 
 const materialToRow = (m: Material): MaterialRow => ({
@@ -124,6 +125,7 @@ const materialToRow = (m: Material): MaterialRow => ({
   skills: m.skills,
   notes: m.notes,
   created_at: m.createdAt,
+  set_id: m.setId ?? null,
 })
 
 const rowToMaterial = (r: MaterialRow): Material => ({
@@ -134,13 +136,14 @@ const rowToMaterial = (r: MaterialRow): Material => ({
   skills: r.skills ?? [],
   notes: r.notes,
   createdAt: r.created_at,
+  setId: r.set_id,
 })
 
 const STUDENT_COLS =
   'id, name, contact, parent_contact, status, start_date, exam_date, baseline_score, target_score, notes, created_at'
 const LESSON_COLS = 'id, student_id, date, duration_min, topics, homework, notes, paid'
 const SCORE_COLS = 'id, student_id, date, source, score, notes'
-const MATERIAL_COLS = 'id, title, url, kind, skills, notes, created_at'
+const MATERIAL_COLS = 'id, title, url, kind, skills, notes, created_at, set_id'
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message)

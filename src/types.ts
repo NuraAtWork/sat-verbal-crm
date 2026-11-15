@@ -55,6 +55,8 @@ export interface Material {
   skills: string[]
   notes: string
   createdAt: string
+  /** id сета вопросов в облаке (question_sets), если материал — интерактивный сет */
+  setId?: string | null
 }
 
 export interface Db {
@@ -63,4 +65,53 @@ export interface Db {
   lessons: Lesson[]
   scores: ScoreEntry[]
   materials: Material[]
+}
+
+// --- Сеты вопросов и задания (только облачный режим) ---
+
+export interface SetChoice {
+  letter: string
+  html: string
+}
+
+export interface SetQuestion {
+  n: number
+  /** Easy / Medium / Hard — ученику не отдаётся */
+  difficulty?: string
+  stimulus: string
+  stem: string
+  choices: SetChoice[]
+}
+
+export interface QuestionSet {
+  id: string
+  title: string
+  subtitle: string
+  skills: string[]
+  questions: SetQuestion[]
+  /** Ключ ответов — есть только у репетитора */
+  answers: string[]
+}
+
+export interface QuestionResult {
+  n: number
+  answer: string | null
+  correct: string
+  is_correct: boolean
+  time_sec: number
+}
+
+export interface Assignment {
+  id: string
+  studentId: string
+  setId: string
+  token: string
+  dueDate: string
+  createdAt: string
+  startedAt: string | null
+  submittedAt: string | null
+  durationSec: number | null
+  correctCount: number | null
+  totalCount: number | null
+  results: QuestionResult[] | null
 }

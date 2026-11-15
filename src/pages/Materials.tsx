@@ -167,6 +167,14 @@ export function MaterialFolder() {
 }
 
 function MaterialLink({ m }: { m: Material }) {
+  const { sync } = useStore()
+  if (m.setId && sync.mode === 'cloud') {
+    return (
+      <Link to={`/sets/${m.setId}`} title={m.notes || undefined}>
+        {m.title}
+      </Link>
+    )
+  }
   const href = safeUrl(m.url)
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" title={m.notes || undefined}>

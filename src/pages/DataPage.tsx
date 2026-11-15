@@ -2,6 +2,8 @@ import { useRef, useState, type ChangeEvent } from 'react'
 import { today } from '../dates'
 import { demoDb } from '../demo'
 import { emptyDb, normalizeDb } from '../db'
+import { isQuestionSet, uploadQuestionSets } from '../sets'
+import { supabase } from '../supabase'
 import { useStore } from '../useStore'
 
 export function DataPage() {
@@ -11,6 +13,7 @@ export function DataPage() {
   // merge — дописать к текущим; replace — восстановить копию целиком
   const importMode = useRef<'merge' | 'replace'>('merge')
   const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const pickFile = (mode: 'merge' | 'replace') => {
     importMode.current = mode
@@ -32,10 +35,31 @@ export function DataPage() {
     e.target.value = ''
     if (!file) return
     try {
-      const parsed = normalizeDb(JSON.parse(await file.text()))
+      const raw: unknown = JSON.parse(await file.text())
+      const parsed = normalizeDb(raw)
       if (!parsed) {
         setMessage('Файл не похож на резервную копию этой CRM.')
         return
+      }
+      // Файл может содержать сеты вопросов (questionSets) — они хранятся только в облаке.
+      const rawSets = (raw as { questionSets?: unknown }).questionSets
+      const sets = Array.isArray(rawSets) ? rawSets.filter(isQuestionSet) : []
+      let setsNote = ''
+      if (sets.length) {
+        if (cloud && supabase) {
+          setBusy(true)
+          try {
+            await uploadQuestionSets(supabase, sets, (done, total) => setMessage(`Загружаю сеты вопросов: ${done}/${total}…`))
+          } catch (e) {
+            setMessage(`Не удалось загрузить сеты: ${e instanceof Error ? e.message : String(e)}. Попробуйте ещё раз.`)
+            return
+          } finally {
+            setBusy(false)
+          }
+          setsNote = ` Сетов вопросов загружено: ${sets.length}.`
+        } else {
+          setsNote = ` Сеты вопросов (${sets.length}) загрузятся в облачном режиме — пока добавлены ссылки на Drive.`
+        }
       }
       const counts =
         [
@@ -50,10 +74,10 @@ export function DataPage() {
       if (importMode.current === 'replace') {
         if (!confirm(`Заменить ВСЕ текущие данные содержимым файла (${counts})?`)) return
         dispatch({ type: 'db/replace', db: parsed })
-        setMessage(`Восстановлено из копии: ${counts}.`)
+        setMessage(`Восстановлено из копии: ${counts}.${setsNote}`)
       } else {
         dispatch({ type: 'db/merge', db: parsed })
-        setMessage(`Добавлено или обновлено: ${counts}. Остальные данные не тронуты.`)
+        setMessage(`Добавлено или обновлено: ${counts}. Остальные данные не тронуты.${setsNote}`)
       }
     } catch {
       setMessage('Не удалось прочитать файл.')
@@ -102,7 +126,7 @@ export function DataPage() {
           <button className="btn btn-primary" onClick={exportJson}>
             Экспорт в JSON
           </button>
-          <button className="btn" onClick={() => pickFile('replace')}>
+          <button className="btn" disabled={busy} onClick={() => pickFile('replace')}>
             Восстановить из копии
           </button>
         </div>
@@ -116,7 +140,7 @@ export function DataPage() {
           удаляется. Подходит для готовых наборов материалов.
         </p>
         <div className="row">
-          <button className="btn" onClick={() => pickFile('merge')}>
+          <button className="btn" disabled={busy} onClick={() => pickFile('merge')}>
             Выбрать файл…
           </button>
         </div>
