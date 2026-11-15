@@ -56,16 +56,20 @@ export const STATUS_LABELS: Record<StudentStatus, string> = {
 
 export const STATUSES = Object.keys(STATUS_LABELS) as StudentStatus[]
 
+/**
+ * В интерфейсе сейчас два раздела: «Вопросы по категориям» (practice) и «Прошлые тесты» (test).
+ * Остальные типы остаются в схеме для совместимости и показываются в «Другие материалы», если есть.
+ */
 export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
-  test: 'Пробный тест',
-  practice: 'Практика',
+  practice: 'Вопросы по категориям',
+  test: 'Прошлые тесты',
   vocab: 'Словарь',
   theory: 'Теория',
   video: 'Видео',
   other: 'Другое',
 }
 
-export const MATERIAL_KINDS = Object.keys(MATERIAL_KIND_LABELS) as MaterialKind[]
+export const ACTIVE_MATERIAL_KINDS: MaterialKind[] = ['practice', 'test']
 
 /** Ссылка для href: только http(s); «example.com/x» дополняется до https://. Иначе null. */
 export function safeUrl(raw: string): string | null {
