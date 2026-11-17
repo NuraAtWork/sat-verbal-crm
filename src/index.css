@@ -21,30 +21,30 @@
   font: 15px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
-  color-scheme: light dark;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111317;
-    --surface: #1a1d23;
-    --text: #e7e9ee;
-    --muted: #9198a5;
-    --border: #2b2f37;
-    --accent: #6f8ff7;
-    --accent-soft: #232c45;
-    --accent-text: #0d1020;
-    --danger: #f0786f;
-    --danger-soft: #3a1f1e;
-    --ok: #5cc98b;
-    --ok-soft: #1a3426;
-    --warn: #e7b155;
-    --warn-soft: #3a2e17;
-    --grey-soft: #262a31;
-    --purple: #a98bf5;
-    --shadow: none;
-  }
+/* Тёмная тема — включается переключателем в боковой панели (data-theme на <html>). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #111317;
+  --surface: #1a1d23;
+  --text: #e7e9ee;
+  --muted: #9198a5;
+  --border: #2b2f37;
+  --accent: #6f8ff7;
+  --accent-soft: #232c45;
+  --accent-text: #0d1020;
+  --danger: #f0786f;
+  --danger-soft: #3a1f1e;
+  --ok: #5cc98b;
+  --ok-soft: #1a3426;
+  --warn: #e7b155;
+  --warn-soft: #3a2e17;
+  --grey-soft: #262a31;
+  --purple: #a98bf5;
+  --shadow: none;
 }
 
 * {
@@ -742,6 +742,32 @@ tr.clickable:hover td {
   font-size: 11px;
 }
 
+/* Theme toggle */
+
+.theme-toggle {
+  font: inherit;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.theme-toggle:hover {
+  background: var(--grey-soft);
+  color: var(--text);
+}
+
+.theme-toggle + .sync {
+  margin-top: 8px;
+}
+
 /* Sync status, banners, login */
 
 .sidebar {
@@ -872,6 +898,14 @@ tr.clickable:hover td {
 }
 
 @media (max-width: 760px) {
+  .theme-toggle {
+    margin: 0 0 0 auto;
+  }
+
+  .theme-toggle + .sync {
+    margin-top: 0;
+  }
+
   .sync {
     margin: 0 0 0 auto;
     padding: 0;

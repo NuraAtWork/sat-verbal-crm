@@ -5,6 +5,10 @@ import './index.css'
 import './sets.css'
 import { SolveApp } from './solve/SolveApp.tsx'
 import { StoreProvider } from './store.tsx'
+import { applyTheme, storedTheme } from './theme.ts'
+
+// Тема CRM: светлая по умолчанию, тёмная — по переключателю (страница ученика всегда светлая).
+applyTheme(storedTheme())
 
 // Ссылка ученика (#/solve/<token>) открывает отдельную страницу без входа и без CRM.
 const SOLVE_RE = /^#\/solve\/([0-9a-f]{64})\/?$/
