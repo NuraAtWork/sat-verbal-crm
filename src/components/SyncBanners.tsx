@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../useStore'
 
@@ -15,7 +16,7 @@ export function SyncBanners() {
             действие.
           </span>
           <button className="icon-btn" title="Скрыть" onClick={sync.dismissError}>
-            ✕
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
       )}

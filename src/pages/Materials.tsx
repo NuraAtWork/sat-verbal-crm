@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { ChevronRight, ClipboardList, FileQuestion, FolderOpen, Pencil, Plus, X } from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { plural } from '../dates'
 import { newId } from '../db'
@@ -62,11 +63,12 @@ export function Materials() {
       <div className="folders">
         {folders.map((f) => (
           <Link key={f.id} to={`/materials/${f.id}`} className={`folder folder-${f.id}`}>
-            <FolderIcon />
+            <FolderIcon id={f.id} />
             <span className="folder-text">
               <span className="folder-name">{f.title}</span>
               <span className="muted small">{f.summary(f.items)}</span>
             </span>
+            <ChevronRight size={18} className="folder-chevron" aria-hidden="true" />
           </Link>
         ))}
       </div>
@@ -74,12 +76,12 @@ export function Materials() {
   )
 }
 
-function FolderIcon() {
+function FolderIcon({ id }: { id: string }) {
+  const Icon = id === 'questions' ? FileQuestion : id === 'tests' ? ClipboardList : FolderOpen
   return (
-    <svg className="folder-icon" viewBox="0 0 48 40" aria-hidden="true">
-      <path d="M4 6a4 4 0 0 1 4-4h11l5 5h16a4 4 0 0 1 4 4v3H4z" className="folder-back" />
-      <rect x="2" y="12" width="44" height="26" rx="4" className="folder-front" />
-    </svg>
+    <span className="folder-icon" aria-hidden="true">
+      <Icon size={20} />
+    </span>
   )
 }
 
@@ -115,7 +117,7 @@ export function MaterialFolder() {
         </h1>
         {addKind && !editing && (
           <button className="btn btn-primary" onClick={() => setEditing({ kind: addKind })}>
-            + Добавить
+            <Plus size={16} aria-hidden="true" /> Добавить
           </button>
         )}
       </div>
@@ -189,10 +191,10 @@ function ItemActions({ m, onEdit, onRemove }: { m: Material; onEdit: (m: Materia
   return (
     <span className="item-actions">
       <button className="icon-btn icon-edit" title="Изменить" onClick={() => onEdit(m)}>
-        ✎
+        <Pencil size={14} aria-hidden="true" />
       </button>
       <button className="icon-btn" title="Удалить" onClick={() => onRemove(m)}>
-        ✕
+        <X size={15} aria-hidden="true" />
       </button>
     </span>
   )

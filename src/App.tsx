@@ -1,4 +1,6 @@
+import { Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
 import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { Brand } from './components/Brand'
 import { SyncBanners } from './components/SyncBanners'
 import { SyncStatus } from './components/SyncStatus'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -10,28 +12,32 @@ import { StudentDetail } from './pages/StudentDetail'
 import { StudentForm } from './pages/StudentForm'
 import { Students } from './pages/Students'
 
+const NAV = [
+  { to: '/', label: 'Обзор', icon: LayoutDashboard, end: true },
+  { to: '/students', label: 'Ученики', icon: Users },
+  { to: '/materials', label: 'Материалы', icon: FolderOpen },
+  { to: '/data', label: 'Данные', icon: Database },
+]
+
 export default function App() {
   return (
     <HashRouter>
       <div className="layout">
         <aside className="sidebar">
-          <div className="brand">
-            <span className="brand-mark">RW</span>
-            <span>
-              SAT Verbal
-              <small>CRM</small>
-            </span>
-          </div>
+          <Brand />
+          <div className="nav-label">Рабочее пространство</div>
           <nav className="nav">
-            <NavLink to="/" end>
-              Обзор
-            </NavLink>
-            <NavLink to="/students">Ученики</NavLink>
-            <NavLink to="/materials">Материалы</NavLink>
-            <NavLink to="/data">Данные</NavLink>
+            {NAV.map(({ to, label, icon: Icon, end }) => (
+              <NavLink key={to} to={to} end={end}>
+                <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                <span>{label}</span>
+              </NavLink>
+            ))}
           </nav>
-          <ThemeToggle />
-          <SyncStatus />
+          <div className="sidebar-foot">
+            <ThemeToggle />
+            <SyncStatus />
+          </div>
         </aside>
         <main className="main">
           <SyncBanners />

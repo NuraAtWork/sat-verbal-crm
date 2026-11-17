@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useState, type FormEvent } from 'react'
+import { Brand } from '../components/Brand'
 
 function translate(message: string): string {
   if (/invalid login credentials/i.test(message)) return 'Неверный email или пароль.'
@@ -26,12 +27,10 @@ export function Login({ sb }: { sb: SupabaseClient }) {
   return (
     <div className="splash">
       <form className="card form login" onSubmit={onSubmit}>
-        <div className="brand">
-          <span className="brand-mark">RW</span>
-          <span>
-            SAT Verbal
-            <small>CRM</small>
-          </span>
+        <Brand />
+        <div>
+          <h1 className="login-title">Вход</h1>
+          <p className="login-sub">Кабинет репетитора</p>
         </div>
         <label className="field">
           <span>Email</span>

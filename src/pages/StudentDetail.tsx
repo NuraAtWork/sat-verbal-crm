@@ -1,3 +1,4 @@
+import { Pencil, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { StudentAssignments } from '../components/Assignments'
@@ -37,26 +38,26 @@ export function StudentDetail() {
           {student.name} <StatusBadge status={student.status} />
         </h1>
         <Link className="btn" to={`/students/${student.id}/edit`}>
-          Редактировать
+          <Pencil size={15} aria-hidden="true" /> Редактировать
         </Link>
       </div>
 
       <div className="stats">
         <div className="stat">
           <span className="stat-value">{student.baselineScore ?? '—'}</span>
-          <span className="stat-label">старт</span>
+          <span className="stat-label">Стартовый балл</span>
         </div>
         <div className="stat">
           <span className="stat-value">{latest ?? '—'}</span>
-          <span className="stat-label">последний тест</span>
+          <span className="stat-label">Последний тест</span>
         </div>
         <div className="stat">
           <span className="stat-value">{student.targetScore ?? '—'}</span>
-          <span className="stat-label">цель</span>
+          <span className="stat-label">Цель</span>
         </div>
         <div className="stat">
           <span className="stat-value small-value">{student.examDate ? formatDate(student.examDate) : '—'}</span>
-          <span className="stat-label">экзамен {student.examDate && `· ${describeExam(student.examDate)}`}</span>
+          <span className="stat-label">Экзамен {student.examDate && `· ${describeExam(student.examDate)}`}</span>
         </div>
       </div>
 
@@ -164,7 +165,7 @@ function ScoreList({ studentId }: { studentId: string }) {
                 title="Удалить"
                 onClick={() => confirm('Удалить результат теста?') && dispatch({ type: 'score/delete', id: s.id })}
               >
-                ✕
+                <X size={15} aria-hidden="true" />
               </button>
             </td>
           </tr>
@@ -235,7 +236,7 @@ function AddLessonForm({ student }: { student: Student }) {
   if (!open) {
     return (
       <button className="btn btn-primary" onClick={() => setOpen(true)}>
-        + Записать урок
+        <Plus size={16} aria-hidden="true" /> Записать урок
       </button>
     )
   }
@@ -349,7 +350,7 @@ function LessonList({ lessons }: { lessons: Lesson[] }) {
               title="Удалить урок"
               onClick={() => confirm('Удалить урок?') && dispatch({ type: 'lesson/delete', id: l.id })}
             >
-              ✕
+              <X size={15} aria-hidden="true" />
             </button>
           </div>
           {l.topics.length > 0 && (

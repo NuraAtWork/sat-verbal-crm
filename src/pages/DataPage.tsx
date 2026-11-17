@@ -85,7 +85,8 @@ export function DataPage() {
   }
 
   const loadDemo = () => {
-    if (db.students.length && !confirm('Заменить текущие данные демо-данными?')) return
+    const hasData = db.students.length + db.lessons.length + db.scores.length + db.materials.length > 0
+    if (hasData && !confirm('Заменить ВСЕ текущие данные демо-данными?')) return
     dispatch({ type: 'db/replace', db: demoDb() })
     setMessage('Демо-данные загружены.')
   }
@@ -150,9 +151,11 @@ export function DataPage() {
       <section className="card">
         <h2>Прочее</h2>
         <div className="row">
-          <button className="btn" onClick={loadDemo}>
-            Загрузить демо-данные
-          </button>
+          {!cloud && (
+            <button className="btn" onClick={loadDemo}>
+              Загрузить демо-данные
+            </button>
+          )}
           <button className="btn btn-danger" onClick={clearAll}>
             Очистить всё
           </button>

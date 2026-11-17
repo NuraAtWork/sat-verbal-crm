@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Plus, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { describeExam } from '../dates'
@@ -32,7 +33,7 @@ export function Students() {
       <div className="page-head">
         <h1>Ученики</h1>
         <Link className="btn btn-primary" to="/students/new">
-          + Ученик
+          <Plus size={16} aria-hidden="true" /> Ученик
         </Link>
       </div>
 
@@ -58,6 +59,9 @@ export function Students() {
 
       {rows.length === 0 ? (
         <div className="card empty">
+          <span className="empty-icon" aria-hidden="true">
+            <Users size={22} />
+          </span>
           <p className="muted">
             {db.students.length === 0 ? 'Учеников пока нет.' : 'Никого не нашлось по этому фильтру.'}
           </p>

@@ -1,3 +1,4 @@
+import { GraduationCap, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
 import { addDays, describeExam, formatDate, today } from '../dates'
@@ -7,7 +8,7 @@ import { latestScore } from '../db'
 import { useStore } from '../useStore'
 
 export function Dashboard() {
-  const { db, dispatch } = useStore()
+  const { db, dispatch, sync } = useStore()
   const t = today()
   const weekAgo = addDays(t, -7)
 
@@ -37,17 +38,22 @@ export function Dashboard() {
       <div className="page">
         <h1>Обзор</h1>
         <div className="card empty">
-          <h2>Учеников пока нет</h2>
+          <span className="empty-icon" aria-hidden="true">
+            <GraduationCap size={22} />
+          </span>
+          <h2>Добавьте первого ученика</h2>
           <p className="muted">
-            Добавьте первого ученика или загрузите демо-данные, чтобы посмотреть, как всё выглядит.
+            Здесь появятся активные ученики, ближайшие экзамены, уроки и сданные задания.
           </p>
           <div className="row">
             <Link className="btn btn-primary" to="/students/new">
-              Добавить ученика
+              <Plus size={16} aria-hidden="true" /> Добавить ученика
             </Link>
-            <button className="btn" onClick={() => dispatch({ type: 'db/replace', db: demoDb() })}>
-              Загрузить демо-данные
-            </button>
+            {sync.mode === 'local' && db.materials.length === 0 && (
+              <button className="btn" onClick={() => dispatch({ type: 'db/replace', db: demoDb() })}>
+                Загрузить демо-данные
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -59,26 +65,26 @@ export function Dashboard() {
       <div className="page-head">
         <h1>Обзор</h1>
         <Link className="btn btn-primary" to="/students/new">
-          + Ученик
+          <Plus size={16} aria-hidden="true" /> Ученик
         </Link>
       </div>
 
       <div className="stats">
         <div className="stat">
           <span className="stat-value">{active.length}</span>
-          <span className="stat-label">активных учеников</span>
+          <span className="stat-label">Активные ученики</span>
         </div>
         <div className="stat">
           <span className="stat-value">{lessonsThisWeek.length}</span>
-          <span className="stat-label">уроков за 7 дней</span>
+          <span className="stat-label">Уроков за 7 дней</span>
         </div>
         <div className="stat">
           <span className="stat-value">{avgGain === null ? '—' : `${avgGain > 0 ? '+' : ''}${avgGain}`}</span>
-          <span className="stat-label">средний прирост R&W</span>
+          <span className="stat-label">Средний прирост R&W</span>
         </div>
         <div className="stat">
           <span className="stat-value">{unpaid.length}</span>
-          <span className="stat-label">неоплаченных уроков</span>
+          <span className="stat-label">Неоплаченные уроки</span>
         </div>
       </div>
 

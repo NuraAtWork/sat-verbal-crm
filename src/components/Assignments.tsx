@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../dates'
@@ -178,7 +179,7 @@ export function StudentAssignments({ student }: { student: Student }) {
                       <CopyLink token={a.token} />
                     )}
                     <button className="icon-btn" title="Удалить задание" onClick={() => onDelete(a)}>
-                      ✕
+                      <X size={15} aria-hidden="true" />
                     </button>
                   </span>
                 </div>
