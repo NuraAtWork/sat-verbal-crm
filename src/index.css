@@ -1417,16 +1417,6 @@ tr.clickable:hover td {
   color: var(--on-accent);
 }
 
-.set-pill.set-add {
-  border-style: dashed;
-  color: var(--faint);
-  box-shadow: none;
-}
-
-.set-pill.set-add:hover {
-  color: var(--accent);
-}
-
 .qdetail {
   display: flex;
   align-items: center;

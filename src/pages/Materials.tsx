@@ -150,12 +150,7 @@ export function MaterialFolder() {
             <span className="lvl-dot lvl-medium" /> Medium
             <span className="lvl-dot lvl-hard" /> Hard
           </div>
-          <QuestionRows
-            items={items}
-            onAdd={(skill) => setEditing({ kind: 'practice', skill })}
-            onEdit={onEdit}
-            onRemove={onRemove}
-          />
+          <QuestionRows items={items} onEdit={onEdit} onRemove={onRemove} />
         </>
       ) : items.length === 0 ? (
         <p className="muted folder-empty">
@@ -239,14 +234,13 @@ type Selected = { row: string; id: string } | null
 /** Компактные строки: категория → номера сетов; клик по номеру раскрывает детали под строкой. */
 function QuestionRows(props: {
   items: Material[]
-  onAdd: (skill: string) => void
   onEdit: (m: Material) => void
   onRemove: (m: Material) => void
 }) {
   const [selected, setSelected] = useState<Selected>(null)
   const uncategorized = sortSets(props.items.filter((m) => m.skills.length === 0))
 
-  const row = (key: string, name: string, sets: Material[], onAdd?: () => void) => (
+  const row = (key: string, name: string, sets: Material[]) => (
     <QuestionRow
       key={key}
       rowKey={key}
@@ -254,7 +248,6 @@ function QuestionRows(props: {
       sets={sets}
       selected={selected}
       onSelect={setSelected}
-      onAdd={onAdd}
       onEdit={props.onEdit}
       onRemove={(m) => {
         props.onRemove(m)
@@ -268,14 +261,7 @@ function QuestionRows(props: {
       {DOMAINS.map((d) => (
         <section key={d.id} className={`qgroup qgroup-${d.id}`}>
           <div className="qdomain">{d.name}</div>
-          {d.skills.map((s) =>
-            row(
-              s.id,
-              s.name,
-              sortSets(props.items.filter((m) => m.skills.includes(s.id))),
-              () => props.onAdd(s.id),
-            ),
-          )}
+          {d.skills.map((s) => row(s.id, s.name, sortSets(props.items.filter((m) => m.skills.includes(s.id)))))}
         </section>
       ))}
       {uncategorized.length > 0 && (
@@ -294,7 +280,6 @@ function QuestionRow(props: {
   sets: Material[]
   selected: Selected
   onSelect: (s: Selected) => void
-  onAdd?: () => void
   onEdit: (m: Material) => void
   onRemove: (m: Material) => void
 }) {
@@ -321,11 +306,6 @@ function QuestionRow(props: {
               </button>
             )
           })}
-          {props.onAdd && (
-            <button className="set-pill set-add" title="Добавить сет в эту категорию" onClick={props.onAdd}>
-              <Plus size={14} aria-hidden="true" />
-            </button>
-          )}
         </div>
         <div className="qrow-count">
           {props.sets.length ? `${props.sets.length} ${plural(props.sets.length, 'сет', 'сета', 'сетов')}` : '—'}
