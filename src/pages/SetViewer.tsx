@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CopyLink } from '../components/Assignments'
 import { QuestionView } from '../components/QuestionView'
 import { skillName } from '../sat'
@@ -126,6 +126,15 @@ function AssignToStudent({ setId }: { setId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<{ name: string; token: string }[]>([])
+  // ?assign=1 (кнопка «Задать» в материалах) — сразу показываем выбор ученика
+  const [params] = useSearchParams()
+  const selectRef = useRef<HTMLSelectElement>(null)
+  const wantsAssign = params.has('assign')
+  useEffect(() => {
+    if (!wantsAssign) return
+    selectRef.current?.scrollIntoView({ block: 'center' })
+    selectRef.current?.focus()
+  }, [wantsAssign])
 
   const students = db.students
     .filter((s) => s.status !== 'finished')
@@ -154,7 +163,12 @@ function AssignToStudent({ setId }: { setId: string }) {
         <p className="muted">Сначала добавьте ученика.</p>
       ) : (
         <div className="inline-form assign-form">
-          <select className="input grow" value={studentId} onChange={(e) => setStudentId(e.target.value)}>
+          <select
+            ref={selectRef}
+            className="input grow"
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+          >
             <option value="">Выберите ученика…</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>

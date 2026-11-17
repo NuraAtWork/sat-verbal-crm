@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ChevronRight, ClipboardList, FileQuestion, FolderOpen, Pencil, Plus, X } from 'lucide-react'
+import {
+  ChevronRight,
+  ClipboardList,
+  ExternalLink,
+  Eye,
+  FileText,
+  FileQuestion,
+  FolderOpen,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { plural } from '../dates'
 import { newId } from '../db'
@@ -11,8 +24,6 @@ import { useStore } from '../useStore'
 type Editing = { id?: string; kind: MaterialKind; skill?: string } | null
 
 const byTitle = (a: Material, b: Material) => a.title.localeCompare(b.title, 'ru', { numeric: true })
-
-const domainName = (id: string) => DOMAINS.find((d) => d.id === id)?.name ?? ''
 
 interface Folder {
   id: string
@@ -132,27 +143,20 @@ export function MaterialFolder() {
       )}
 
       {folder.id === 'questions' ? (
-        <div className="card-grid">
-          {SKILLS.map((s) => (
-            <CategoryCard
-              key={s.id}
-              domainId={s.domainId}
-              title={s.name}
-              items={items.filter((m) => m.skills.includes(s.id))}
-              onAdd={() => setEditing({ kind: 'practice', skill: s.id })}
-              onEdit={onEdit}
-              onRemove={onRemove}
-            />
-          ))}
-          {items.some((m) => m.skills.length === 0) && (
-            <CategoryCard
-              title="Без категории"
-              items={items.filter((m) => m.skills.length === 0)}
-              onEdit={onEdit}
-              onRemove={onRemove}
-            />
-          )}
-        </div>
+        <>
+          <div className="qlegend muted small">
+            Номер — это сет, полоска снизу — преобладающая сложность:
+            <span className="lvl-dot lvl-easy" /> Easy
+            <span className="lvl-dot lvl-medium" /> Medium
+            <span className="lvl-dot lvl-hard" /> Hard
+          </div>
+          <QuestionRows
+            items={items}
+            onAdd={(skill) => setEditing({ kind: 'practice', skill })}
+            onEdit={onEdit}
+            onRemove={onRemove}
+          />
+        </>
       ) : items.length === 0 ? (
         <p className="muted folder-empty">
           Папка пуста. Добавьте прошлые экзамены и пробные тесты — ссылкой на файл или страницу.
@@ -165,25 +169,6 @@ export function MaterialFolder() {
         </div>
       )}
     </div>
-  )
-}
-
-function MaterialLink({ m }: { m: Material }) {
-  const { sync } = useStore()
-  if (m.setId && sync.mode === 'cloud') {
-    return (
-      <Link to={`/sets/${m.setId}`} title={m.notes || undefined}>
-        {m.title}
-      </Link>
-    )
-  }
-  const href = safeUrl(m.url)
-  return href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" title={m.notes || undefined}>
-      {m.title} ↗
-    </a>
-  ) : (
-    <span title={m.notes || undefined}>{m.title}</span>
   )
 }
 
@@ -200,37 +185,205 @@ function ItemActions({ m, onEdit, onRemove }: { m: Material; onEdit: (m: Materia
   )
 }
 
-function CategoryCard(props: {
-  domainId?: string
-  title: string
+interface Difficulty {
+  counts: Record<'Easy' | 'Medium' | 'Hard', number>
+  total: number
+  /** Преобладающая сложность для цветной полоски */
+  main: 'easy' | 'medium' | 'hard' | 'none'
+}
+
+/** Разбирает «25 вопросов · 15 Easy, 10 Medium» из заметок сета. */
+function difficultyOf(notes: string): Difficulty {
+  const counts = { Easy: 0, Medium: 0, Hard: 0 }
+  for (const m of notes.matchAll(/(\d+)\s+(Easy|Medium|Hard)/g)) {
+    counts[m[2] as keyof typeof counts] += Number(m[1])
+  }
+  const total = counts.Easy + counts.Medium + counts.Hard
+  const order = ['Hard', 'Medium', 'Easy'] as const
+  const top = total ? order.reduce((best, k) => (counts[k] > counts[best] ? k : best), order[0]) : null
+  return { counts, total, main: top ? (top.toLowerCase() as Difficulty['main']) : 'none' }
+}
+
+/** «Boundaries — Set 7» → 7; без номера в названии — null. */
+function setNumber(title: string): number | null {
+  const m = title.match(/(?:set|сет)\s*(\d+)/i)
+  return m ? Number(m[1]) : null
+}
+
+/** Сначала сеты с номерами по порядку, потом остальные материалы по названию. */
+function sortSets(sets: Material[]): Material[] {
+  return [...sets].sort((a, b) => {
+    const na = setNumber(a.title) ?? Infinity
+    const nb = setNumber(b.title) ?? Infinity
+    return na - nb || a.title.localeCompare(b.title, 'ru', { numeric: true })
+  })
+}
+
+function DiffBar({ d }: { d: Difficulty }) {
+  if (!d.total) return null
+  const label = (['Easy', 'Medium', 'Hard'] as const)
+    .filter((k) => d.counts[k])
+    .map((k) => `${d.counts[k]} ${k}`)
+    .join(', ')
+  return (
+    <span className="diffbar" title={label} aria-label={label}>
+      {d.counts.Easy > 0 && <span className="lvl-easy" style={{ flex: d.counts.Easy }} />}
+      {d.counts.Medium > 0 && <span className="lvl-medium" style={{ flex: d.counts.Medium }} />}
+      {d.counts.Hard > 0 && <span className="lvl-hard" style={{ flex: d.counts.Hard }} />}
+    </span>
+  )
+}
+
+type Selected = { row: string; id: string } | null
+
+/** Компактные строки: категория → номера сетов; клик по номеру раскрывает детали под строкой. */
+function QuestionRows(props: {
   items: Material[]
+  onAdd: (skill: string) => void
+  onEdit: (m: Material) => void
+  onRemove: (m: Material) => void
+}) {
+  const [selected, setSelected] = useState<Selected>(null)
+  const uncategorized = sortSets(props.items.filter((m) => m.skills.length === 0))
+
+  const row = (key: string, name: string, sets: Material[], onAdd?: () => void) => (
+    <QuestionRow
+      key={key}
+      rowKey={key}
+      name={name}
+      sets={sets}
+      selected={selected}
+      onSelect={setSelected}
+      onAdd={onAdd}
+      onEdit={props.onEdit}
+      onRemove={(m) => {
+        props.onRemove(m)
+        setSelected(null)
+      }}
+    />
+  )
+
+  return (
+    <div className="card qrows">
+      {DOMAINS.map((d) => (
+        <section key={d.id} className={`qgroup qgroup-${d.id}`}>
+          <div className="qdomain">{d.name}</div>
+          {d.skills.map((s) =>
+            row(
+              s.id,
+              s.name,
+              sortSets(props.items.filter((m) => m.skills.includes(s.id))),
+              () => props.onAdd(s.id),
+            ),
+          )}
+        </section>
+      ))}
+      {uncategorized.length > 0 && (
+        <section className="qgroup">
+          <div className="qdomain">Без категории</div>
+          {row('none', 'Без категории', uncategorized)}
+        </section>
+      )}
+    </div>
+  )
+}
+
+function QuestionRow(props: {
+  rowKey: string
+  name: string
+  sets: Material[]
+  selected: Selected
+  onSelect: (s: Selected) => void
   onAdd?: () => void
   onEdit: (m: Material) => void
   onRemove: (m: Material) => void
 }) {
+  const current =
+    props.selected?.row === props.rowKey ? props.sets.find((m) => m.id === props.selected?.id) : undefined
   return (
-    <div className={`mcard cat cat-${props.domainId ?? 'none'}`}>
-      {props.domainId && <div className="cat-domain">{domainName(props.domainId)}</div>}
-      <div className="cat-title">
-        {props.title} {props.items.length > 0 && <span className="muted">{props.items.length}</span>}
+    <div className={`qrow-wrap ${current ? 'is-open' : ''}`}>
+      <div className="qrow">
+        <div className="qrow-name">{props.name}</div>
+        <div className="qrow-sets">
+          {props.sets.map((m) => {
+            const d = difficultyOf(m.notes)
+            const num = setNumber(m.title)
+            const isSel = current?.id === m.id
+            return (
+              <button
+                key={m.id}
+                className={`set-pill lvl-${d.main} ${isSel ? 'is-sel' : ''}`}
+                title={`${m.title}${m.notes ? ` · ${m.notes}` : ''}`}
+                aria-pressed={isSel}
+                onClick={() => props.onSelect(isSel ? null : { row: props.rowKey, id: m.id })}
+              >
+                {num ?? <FileText size={14} aria-label={m.title} />}
+              </button>
+            )
+          })}
+          {props.onAdd && (
+            <button className="set-pill set-add" title="Добавить сет в эту категорию" onClick={props.onAdd}>
+              <Plus size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="qrow-count">
+          {props.sets.length ? `${props.sets.length} ${plural(props.sets.length, 'сет', 'сета', 'сетов')}` : '—'}
+        </div>
       </div>
-      {props.items.length === 0 ? (
-        <p className="muted small cat-empty">Пока пусто</p>
-      ) : (
-        <ul className="cat-items">
-          {props.items.map((m) => (
-            <li key={m.id}>
-              <MaterialLink m={m} />
-              <ItemActions m={m} onEdit={props.onEdit} onRemove={props.onRemove} />
-            </li>
-          ))}
-        </ul>
+      {current && (
+        <SetDetails m={current} onClose={() => props.onSelect(null)} onEdit={props.onEdit} onRemove={props.onRemove} />
       )}
-      {props.onAdd && (
-        <button className="link-btn cat-add" onClick={props.onAdd}>
-          + Добавить
+    </div>
+  )
+}
+
+function SetDetails(props: {
+  m: Material
+  onClose: () => void
+  onEdit: (m: Material) => void
+  onRemove: (m: Material) => void
+}) {
+  const { sync } = useStore()
+  const { m } = props
+  const cloudSet = Boolean(m.setId) && sync.mode === 'cloud'
+  const href = safeUrl(m.url)
+  return (
+    <div className="qdetail">
+      <div className="qdetail-info">
+        <div className="qdetail-title">{m.title}</div>
+        <div className="qdetail-meta">
+          <DiffBar d={difficultyOf(m.notes)} />
+          {m.notes && <span className="muted small">{m.notes}</span>}
+        </div>
+      </div>
+      <div className="qdetail-actions">
+        {cloudSet ? (
+          <>
+            <Link className="btn btn-small" to={`/sets/${m.setId}`}>
+              <Eye size={14} aria-hidden="true" /> Открыть
+            </Link>
+            <Link className="btn btn-small btn-primary" to={`/sets/${m.setId}?assign=1`}>
+              <Send size={14} aria-hidden="true" /> Задать
+            </Link>
+          </>
+        ) : (
+          href && (
+            <a className="btn btn-small" href={href} target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={14} aria-hidden="true" /> Открыть
+            </a>
+          )
+        )}
+        <button className="icon-btn icon-edit" title="Изменить" onClick={() => props.onEdit(m)}>
+          <Pencil size={14} aria-hidden="true" />
         </button>
-      )}
+        <button className="icon-btn" title="Удалить" onClick={() => props.onRemove(m)}>
+          <Trash2 size={15} aria-hidden="true" />
+        </button>
+        <button className="icon-btn icon-edit" title="Свернуть" onClick={props.onClose}>
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   )
 }
