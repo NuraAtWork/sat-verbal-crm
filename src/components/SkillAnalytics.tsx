@@ -194,7 +194,7 @@ function SkillRow({ name, lessons, st }: { name: string; lessons: number; st: Sk
           )}
         </span>
       </span>
-      <span className="sk-meta small" role="cell">
+      <span className={`sk-meta small ${st && st.total > 0 ? '' : 'sk-meta-empty'}`} role="cell">
         {st && st.total > 0 ? (
           <>
             <span title="Правильно / всего вопросов">

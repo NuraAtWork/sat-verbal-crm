@@ -326,6 +326,10 @@
     grid-column: 1 / -1;
   }
 
+  .sk-meta-empty {
+    display: none;
+  }
+
   .sk-kpi {
     flex: 1 1 140px;
     min-width: 0;
