@@ -379,13 +379,25 @@ function SetDetails(props: {
 }
 
 function TestCard({ m, onEdit, onRemove }: { m: Material; onEdit: (m: Material) => void; onRemove: (m: Material) => void }) {
+  const { sync } = useStore()
   const href = safeUrl(m.url)
+  // тест, загруженный в облако (материал ссылается на сет), — открыть и задать ученику
+  const cloudSet = Boolean(m.setId) && sync.mode === 'cloud'
   return (
     <div className="mcard test-card">
       <div className="test-title">{m.title}</div>
       {m.notes && <div className="muted small test-notes">{m.notes}</div>}
       <div className="test-actions">
-        {href ? (
+        {cloudSet ? (
+          <span className="row">
+            <Link className="btn btn-small" to={`/sets/${m.setId}`}>
+              <Eye size={14} aria-hidden="true" /> Открыть
+            </Link>
+            <Link className="btn btn-small btn-primary" to={`/sets/${m.setId}?assign=1`}>
+              <Send size={14} aria-hidden="true" /> Задать
+            </Link>
+          </span>
+        ) : href ? (
           <a className="btn btn-small" href={href} target="_blank" rel="noopener noreferrer">
             Открыть ↗
           </a>
