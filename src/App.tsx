@@ -7,6 +7,7 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { Dashboard } from './pages/Dashboard'
 import { DataPage } from './pages/DataPage'
 import { MaterialFolder, Materials } from './pages/Materials'
+import { SetEditor } from './pages/SetEditor'
 import { SetViewer } from './pages/SetViewer'
 import { StudentDetail } from './pages/StudentDetail'
 import { StudentForm } from './pages/StudentForm'
@@ -49,7 +50,9 @@ export default function App() {
             <Route path="/students/:id/edit" element={<StudentForm />} />
             <Route path="/materials" element={<Materials />} />
             <Route path="/materials/:folder" element={<MaterialFolder />} />
+            <Route path="/sets/new" element={<SetEditor />} />
             <Route path="/sets/:id" element={<SetViewer />} />
+            <Route path="/sets/:id/edit" element={<SetEditor />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
