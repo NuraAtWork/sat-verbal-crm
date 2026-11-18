@@ -2,11 +2,13 @@ import { Pencil, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { StudentAssignments } from '../components/Assignments'
+import { NextSets, SkillAnalyticsCard } from '../components/SkillAnalytics'
 import { ScoreChart } from '../components/ScoreChart'
 import { StatusBadge } from '../components/StatusBadge'
 import { describeExam, formatDate, today } from '../dates'
 import { DOMAINS, SKILLS, parseScore, skillName } from '../sat'
 import { lessonsOf, newId, scoresOf } from '../db'
+import { useSkillAnalytics } from '../useSkillAnalytics'
 import { useStore } from '../useStore'
 import type { Lesson, Student } from '../types'
 
@@ -14,6 +16,10 @@ export function StudentDetail() {
   const { id } = useParams()
   const { db } = useStore()
   const student = db.students.find((s) => s.id === id)
+  // Аналитика по навыкам (облако): reloadKey перечитывает и её, и список заданий.
+  const [reloadKey, setReloadKey] = useState(0)
+  const skillData = useSkillAnalytics(student?.id, reloadKey)
+  const reload = () => setReloadKey((k) => k + 1)
 
   if (!student) {
     return (
@@ -82,15 +88,22 @@ export function StudentDetail() {
           {student.notes && <p className="notes">{student.notes}</p>}
         </section>
 
-        <section className="card">
-          <h2>Пройденные темы</h2>
-          <SkillCoverage lessons={lessons} />
-        </section>
+        {skillData.enabled ? (
+          <NextSets data={skillData} studentId={student.id} onAssigned={reload} />
+        ) : (
+          <section className="card">
+            <h2>Пройденные темы</h2>
+            <SkillCoverage lessons={lessons} />
+          </section>
+        )}
       </div>
+
+      {/* В облаке «проходили на уроках» и «как решает» — одна таблица навыков вместо «Пройденных тем». */}
+      {skillData.enabled && <SkillAnalyticsCard data={skillData} lessons={lessons} onReload={reload} />}
 
       <section className="card">
         <h2>Задания</h2>
-        <StudentAssignments student={student} />
+        <StudentAssignments key={reloadKey} student={student} />
       </section>
 
       <section className="card">
