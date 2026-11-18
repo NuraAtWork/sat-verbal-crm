@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pencil } from 'lucide-react'
+import { CAN_EDIT_LIBRARY } from '../permissions'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CopyLink } from '../components/Assignments'
 import { QuestionView } from '../components/QuestionView'
@@ -101,9 +102,11 @@ function SetViewerInner({ id }: { id: string }) {
       {back}
       <div className="page-head">
         <h1>{set.title}</h1>
-        <Link className="btn" to={`/sets/${set.id}/edit`}>
-          <Pencil size={14} aria-hidden="true" /> Редактировать
-        </Link>
+        {CAN_EDIT_LIBRARY && (
+          <Link className="btn" to={`/sets/${set.id}/edit`}>
+            <Pencil size={14} aria-hidden="true" /> Редактировать
+          </Link>
+        )}
       </div>
       {isTest ? (
         <TestMeta set={set} />

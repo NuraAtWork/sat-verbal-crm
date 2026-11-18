@@ -18,6 +18,7 @@ import { plural } from '../dates'
 import { newId } from '../db'
 import { ACTIVE_MATERIAL_KINDS, DOMAINS, MATERIAL_KIND_LABELS, SKILLS, safeUrl } from '../sat'
 import type { Material, MaterialKind } from '../types'
+import { CAN_EDIT_LIBRARY } from '../permissions'
 import { useStore } from '../useStore'
 
 /** Что сейчас открыто в форме: новый материал (с предвыбранным типом/навыком) или редактирование. */
@@ -126,7 +127,7 @@ export function MaterialFolder() {
         <h1>
           {folder.title} <span className="muted h1-count">{items.length}</span>
         </h1>
-        {addKind && !editing && (
+        {CAN_EDIT_LIBRARY && addKind && !editing && (
           <div className="row">
             {folder.id === 'questions' && sync.mode === 'cloud' && (
               <Link className="btn btn-primary" to="/sets/new">
@@ -364,12 +365,16 @@ function SetDetails(props: {
             </a>
           )
         )}
-        <button className="icon-btn icon-edit" title="Изменить" onClick={() => props.onEdit(m)}>
-          <Pencil size={14} aria-hidden="true" />
-        </button>
-        <button className="icon-btn" title="Удалить" onClick={() => props.onRemove(m)}>
-          <Trash2 size={15} aria-hidden="true" />
-        </button>
+        {CAN_EDIT_LIBRARY && (
+          <>
+            <button className="icon-btn icon-edit" title="Изменить" onClick={() => props.onEdit(m)}>
+              <Pencil size={14} aria-hidden="true" />
+            </button>
+            <button className="icon-btn" title="Удалить" onClick={() => props.onRemove(m)}>
+              <Trash2 size={15} aria-hidden="true" />
+            </button>
+          </>
+        )}
         <button className="icon-btn icon-edit" title="Свернуть" onClick={props.onClose}>
           <X size={15} aria-hidden="true" />
         </button>
@@ -404,7 +409,7 @@ function TestCard({ m, onEdit, onRemove }: { m: Material; onEdit: (m: Material) 
         ) : (
           <span className="muted small">без ссылки</span>
         )}
-        <ItemActions m={m} onEdit={onEdit} onRemove={onRemove} />
+        {CAN_EDIT_LIBRARY && <ItemActions m={m} onEdit={onEdit} onRemove={onRemove} />}
       </div>
     </div>
   )

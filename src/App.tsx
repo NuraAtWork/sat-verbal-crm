@@ -1,6 +1,7 @@
 import { Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
-import { HashRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Brand } from './components/Brand'
+import { CAN_EDIT_LIBRARY } from './permissions'
 import { SyncBanners } from './components/SyncBanners'
 import { SyncStatus } from './components/SyncStatus'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -19,6 +20,12 @@ const NAV = [
   { to: '/materials', label: 'Материалы', icon: FolderOpen },
   { to: '/data', label: 'Данные', icon: Database },
 ]
+
+/** Без прав на библиотеку редактор сета открывает просмотр сета. */
+function ToSetViewer() {
+  const { id } = useParams()
+  return <Navigate to={`/sets/${id}`} replace />
+}
 
 export default function App() {
   return (
@@ -50,9 +57,9 @@ export default function App() {
             <Route path="/students/:id/edit" element={<StudentForm />} />
             <Route path="/materials" element={<Materials />} />
             <Route path="/materials/:folder" element={<MaterialFolder />} />
-            <Route path="/sets/new" element={<SetEditor />} />
+            <Route path="/sets/new" element={CAN_EDIT_LIBRARY ? <SetEditor /> : <Navigate to="/materials" replace />} />
             <Route path="/sets/:id" element={<SetViewer />} />
-            <Route path="/sets/:id/edit" element={<SetEditor />} />
+            <Route path="/sets/:id/edit" element={CAN_EDIT_LIBRARY ? <SetEditor /> : <ToSetViewer />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
