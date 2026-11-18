@@ -11,6 +11,7 @@ import {
   type SubmitResult,
 } from '../sets'
 import { supabase } from '../supabase'
+import { TestSolve } from './TestSolve'
 
 // Страница ученика: открывается по ссылке #/solve/<token>, без входа.
 
@@ -160,6 +161,15 @@ function Solve({ sb, token }: { sb: SupabaseClient; token: string }) {
             Попробовать ещё раз
           </button>
         </div>
+      </Shell>
+    )
+  }
+
+  // пробный тест — отдельный режим (модули с таймером, см. TestSolve)
+  if (data.kind === 'test') {
+    return (
+      <Shell title={data.title}>
+        <TestSolve sb={sb} token={token} data={data} />
       </Shell>
     )
   }

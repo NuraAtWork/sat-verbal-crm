@@ -7,6 +7,7 @@ import { assignmentStatus, createAssignment, deleteAssignment, formatDuration, l
 import { supabase } from '../supabase'
 import type { Assignment, Material, Student } from '../types'
 import { useStore } from '../useStore'
+import { TestBadge } from './TestBadge'
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -72,6 +73,7 @@ export function StudentAssignments({ student }: { student: Student }) {
 
   const sets = db.materials.filter((m) => m.setId).sort((a, b) => a.title.localeCompare(b.title, 'ru', { numeric: true }))
   const titleOf = (id: string) => db.materials.find((m) => m.setId === id)?.title ?? 'Сет'
+  const isTest = (id: string) => db.materials.find((m) => m.setId === id)?.kind === 'test'
 
   useEffect(() => {
     if (!supabase) return
@@ -162,6 +164,7 @@ export function StudentAssignments({ student }: { student: Student }) {
                 <div className="assign-row">
                   <span className={`badge ${st.cls}`}>{st.label}</span>
                   <strong className="assign-title">{titleOf(a.setId)}</strong>
+                  <TestBadge a={a} isTest={isTest(a.setId)} />
                   {a.submittedAt ? (
                     <span className="assign-score">
                       {a.correctCount}/{a.totalCount} <span className="muted">({pct}%)</span> ·{' '}

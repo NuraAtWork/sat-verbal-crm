@@ -515,3 +515,16 @@
     padding: 20px;
   }
 }
+
+/* ===== Пробные тесты в списке заданий репетитора ===== */
+
+.badge-test {
+  background: var(--accent);
+  color: #fff;
+}
+
+.assign-estimate {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-ink);
+}

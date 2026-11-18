@@ -115,3 +115,48 @@ export interface Assignment {
   totalCount: number | null
   results: QuestionResult[] | null
 }
+
+// --- Пробные тесты (формат Bluebook) ---
+// Дополняют интерфейсы выше (слияние объявлений TypeScript), чтобы не трогать существующие строки.
+
+export interface TestModule {
+  title: string
+  count: number
+  minutes: number
+}
+
+/** Закрытый модуль задания-теста (хранится на сервере). */
+export interface ModuleAnswers {
+  answers: (string | null)[]
+  times: number[]
+  submitted_at: string
+  /** Сколько секунд прошло по часам сервера от начала модуля до сдачи */
+  elapsed_sec: number
+  /** Сдан позже лимита (+2 мин запаса) */
+  late: boolean
+}
+
+export interface QuestionSet {
+  /** 'test' — пробный тест с модулями; по умолчанию обычный сет */
+  kind?: 'set' | 'test'
+  modules?: TestModule[] | null
+  /** Объяснения к ответам по порядку вопросов ('' — нет) — есть только у репетитора */
+  explanations?: string[] | null
+}
+
+export interface SetQuestion {
+  /** Номер модуля теста (с 1) */
+  module?: number
+  /** id навыка из SKILLS — ученику не отдаётся */
+  skill?: string
+}
+
+export interface QuestionResult {
+  module?: number
+}
+
+export interface Assignment {
+  /** Оценка балла R&W 200–800 по тесту (грубая) */
+  scoreEstimate?: number | null
+  moduleAnswers?: ModuleAnswers[] | null
+}
