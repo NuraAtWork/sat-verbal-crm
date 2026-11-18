@@ -1,13 +1,10 @@
-import DOMPurify from 'dompurify'
 import { useMemo } from 'react'
+import { sanitizeHtml } from '../html'
 import type { SetQuestion } from '../types'
 
 /** HTML вопроса из базы: дополнительно чистим в браузере (HTML + SVG для графиков). */
 function Html({ html, className }: { html: string; className?: string }) {
-  const clean = useMemo(
-    () => DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true }, FORBID_TAGS: ['style'] }),
-    [html],
-  )
+  const clean = useMemo(() => sanitizeHtml(html), [html])
   if (!clean) return null
   return <div className={className} dangerouslySetInnerHTML={{ __html: clean }} />
 }
