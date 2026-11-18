@@ -99,7 +99,7 @@ function FolderIcon({ id }: { id: string }) {
 /** Содержимое папки: карточки категорий или карточки тестов. */
 export function MaterialFolder() {
   const { folder: folderId } = useParams()
-  const { db, dispatch } = useStore()
+  const { db, dispatch, sync } = useStore()
   const [editing, setEditing] = useState<Editing>(null)
 
   const folder = FOLDERS.find((f) => f.id === folderId)
@@ -127,9 +127,19 @@ export function MaterialFolder() {
           {folder.title} <span className="muted h1-count">{items.length}</span>
         </h1>
         {addKind && !editing && (
-          <button className="btn btn-primary" onClick={() => setEditing({ kind: addKind })}>
-            <Plus size={16} aria-hidden="true" /> Добавить
-          </button>
+          <div className="row">
+            {folder.id === 'questions' && sync.mode === 'cloud' && (
+              <Link className="btn btn-primary" to="/sets/new">
+                <Plus size={16} aria-hidden="true" /> Новый сет
+              </Link>
+            )}
+            <button
+              className={`btn ${folder.id === 'questions' && sync.mode === 'cloud' ? '' : 'btn-primary'}`}
+              onClick={() => setEditing({ kind: addKind })}
+            >
+              <Plus size={16} aria-hidden="true" /> {folder.id === 'questions' && sync.mode === 'cloud' ? 'Ссылка' : 'Добавить'}
+            </button>
+          </div>
         )}
       </div>
 
