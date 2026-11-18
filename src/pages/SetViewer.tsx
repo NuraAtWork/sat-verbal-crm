@@ -4,10 +4,11 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CopyLink } from '../components/Assignments'
 import { QuestionView } from '../components/QuestionView'
 import { skillName } from '../sat'
-import { createAssignment, fetchQuestionSet } from '../sets'
+import { createAssignment, fetchQuestionSet, isTestSet } from '../sets'
 import { supabase } from '../supabase'
 import type { QuestionSet } from '../types'
 import { useStore } from '../useStore'
+import { TestMeta, TestQuestions } from './TestViewer'
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -36,11 +37,16 @@ function SetViewerInner({ id }: { id: string }) {
   }, [id])
 
   const material = db.materials.find((m) => m.setId === id)
+  const isTest = isTestSet(set) || material?.kind === 'test'
   const back = (
     <nav className="breadcrumbs">
       <Link to="/materials">Материалы</Link>
       <span>/</span>
-      <Link to="/materials/questions">Вопросы по категориям</Link>
+      {isTest ? (
+        <Link to="/materials/tests">Прошлые тесты</Link>
+      ) : (
+        <Link to="/materials/questions">Вопросы по категориям</Link>
+      )}
       <span>/</span>
     </nav>
   )
@@ -99,6 +105,9 @@ function SetViewerInner({ id }: { id: string }) {
           <Pencil size={14} aria-hidden="true" /> Редактировать
         </Link>
       </div>
+      {isTest ? (
+        <TestMeta set={set} />
+      ) : (
       <p className="muted set-meta">
         {set.questions.length} вопросов ·{' '}
         {Object.entries(counts)
@@ -106,6 +115,7 @@ function SetViewerInner({ id }: { id: string }) {
           .join(', ')}
         {set.skills.length > 0 && ` · ${set.skills.map(skillName).join(', ')}`}
       </p>
+      )}
 
       <AssignToStudent setId={set.id} />
 
@@ -114,11 +124,15 @@ function SetViewerInner({ id }: { id: string }) {
         Показывать правильные ответы
       </label>
 
-      <div className="paper">
-        {set.questions.map((q, i) => (
-          <QuestionView key={q.n} q={q} correct={showAnswers ? set.answers[i] : undefined} showDifficulty />
-        ))}
-      </div>
+      {isTest ? (
+        <TestQuestions set={set} showAnswers={showAnswers} />
+      ) : (
+        <div className="paper">
+          {set.questions.map((q, i) => (
+            <QuestionView key={q.n} q={q} correct={showAnswers ? set.answers[i] : undefined} showDifficulty />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
