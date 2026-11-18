@@ -50,7 +50,8 @@ export async function fetchQuestionSet(sb: SupabaseClient, id: string): Promise<
   const data = check(
     await sb
       .from('question_sets')
-      .select('id, title, subtitle, skills, questions, answers')
+      // * — вместе с полями тестов (kind, modules, explanations), если они есть
+      .select('*')
       .eq('id', id)
       .maybeSingle(),
   )
