@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Assignment, QuestionResult, QuestionSet, SetQuestion } from './types'
+import type { Assignment, ModuleAnswers, QuestionResult, QuestionSet, SetQuestion, TestModule } from './types'
 
 // Работа с сетами вопросов и заданиями в Supabase. Без облака эти функции не вызываются.
 
@@ -38,6 +38,8 @@ export async function uploadQuestionSets(
       skills: s.skills ?? [],
       questions: s.questions,
       answers: s.answers,
+      // поля тестов — только у тестов, чтобы обычные сеты грузились и без новых колонок
+      ...(s.kind === 'test' ? { kind: 'test', modules: s.modules ?? null, explanations: s.explanations ?? null } : {}),
     }))
     check(await sb.from('question_sets').upsert(rows))
     onProgress?.(Math.min(i + CHUNK, sets.length), sets.length)
@@ -68,6 +70,8 @@ interface AssignmentRow {
   correct_count: number | null
   total_count: number | null
   results: QuestionResult[] | null
+  score_estimate?: number | null
+  module_answers?: ModuleAnswers[] | null
 }
 
 const ASSIGNMENT_COLS =
@@ -86,17 +90,18 @@ const rowToAssignment = (r: AssignmentRow): Assignment => ({
   correctCount: r.correct_count,
   totalCount: r.total_count,
   results: r.results,
+  scoreEstimate: r.score_estimate ?? null,
+  moduleAnswers: r.module_answers ?? null,
 })
 
 export async function listAssignments(sb: SupabaseClient, studentId: string): Promise<Assignment[]> {
-  const data = check(
-    await sb
-      .from('assignments')
-      .select(ASSIGNMENT_COLS)
-      .eq('student_id', studentId)
-      .order('created_at', { ascending: false }),
-  )
-  return (data as AssignmentRow[]).map(rowToAssignment)
+  const query = (cols: string) =>
+    sb.from('assignments').select(cols).eq('student_id', studentId).order('created_at', { ascending: false })
+  // колонки тестов появляются после SQL из блока «Пробные тесты»; без них — как раньше
+  let res = await query(`${ASSIGNMENT_COLS}, ${TEST_ASSIGNMENT_COLS}`)
+  if (res.error) res = await query(ASSIGNMENT_COLS)
+  const data = check(res)
+  return (data as unknown as AssignmentRow[]).map(rowToAssignment)
 }
 
 export async function createAssignment(
@@ -190,4 +195,78 @@ export function assignmentStatus(a: Assignment): { label: string; cls: string } 
   if (a.submittedAt) return { label: 'Сдано', cls: 'badge-active' }
   if (a.startedAt) return { label: 'Решает', cls: 'badge-paused' }
   return { label: 'Задано', cls: 'badge-lead' }
+}
+
+// --- Пробные тесты -------------------------------------------------------------------
+
+const TEST_ASSIGNMENT_COLS = 'score_estimate, module_answers'
+
+export const isTestSet = (s: { kind?: string | null } | null | undefined) => s?.kind === 'test'
+
+/** Поля задания-теста, которые get_assignment отдаёт ученику (после SQL «Пробные тесты»). */
+export interface StudentAssignment {
+  kind?: 'set' | 'test'
+  modules?: TestModule[] | null
+  /** Начала открытых модулей по часам сервера */
+  module_starts?: string[] | null
+  modules_done?: number
+  server_now?: string
+  score_estimate?: number | null
+  /** Только после сдачи */
+  explanations?: string[] | null
+}
+
+export interface ModuleState {
+  module_starts: string[]
+  modules_done: number
+  server_now: string
+}
+
+export interface TestSubmitResult {
+  modules_done: number
+  submitted_at: string | null
+  duration_sec: number | null
+  correct_count: number | null
+  total_count: number | null
+  results: QuestionResult[] | null
+  score_estimate?: number | null
+  explanations?: string[] | null
+}
+
+export async function startTestModule(sb: SupabaseClient, token: string, module: number): Promise<ModuleState> {
+  const data = check(await sb.rpc('start_test_module', { p_token: token, p_module: module }))
+  return data as ModuleState
+}
+
+export async function submitTestModule(
+  sb: SupabaseClient,
+  token: string,
+  module: number,
+  answers: (string | null)[],
+  times: number[],
+): Promise<TestSubmitResult> {
+  const data = check(
+    await sb.rpc('submit_test_module', {
+      p_token: token,
+      p_module: module,
+      p_answers: answers,
+      p_times: times.map((t) => Math.max(0, Math.round(t))),
+    }),
+  )
+  return data as TestSubmitResult
+}
+
+/**
+ * Грубая оценка балла R&W 200–800 по доле верных (та же таблица, что estimate_rw_score в SQL).
+ * Не официальная шкала: реальный перевод зависит от сложности вопросов и адаптивности модуля 2.
+ */
+export function estimateRwScore(correct: number, total: number): number | null {
+  if (!total) return null
+  const xs = [0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 0.95, 1]
+  const ys = [200, 240, 340, 440, 520, 600, 690, 760, 800]
+  const f = Math.min(1, Math.max(0, correct / total))
+  for (let i = 1; i < xs.length; i++) {
+    if (f <= xs[i]) return Math.round((ys[i - 1] + ((ys[i] - ys[i - 1]) * (f - xs[i - 1])) / (xs[i] - xs[i - 1])) / 10) * 10
+  }
+  return 800
 }
