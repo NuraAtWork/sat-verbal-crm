@@ -291,6 +291,11 @@
 
 /* ===== Блок «Словарь» в карточке ученика (CRM, обе темы) ===== */
 
+.stats.vocab-stats {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  margin-top: 12px;
+}
+
 .vocab-days {
   display: flex;
   align-items: flex-end;
