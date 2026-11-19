@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import type { Student } from '../types'
 import { useStore } from '../useStore'
 import {
+  EXAM_QUIET_DAYS,
   createEnrollment,
   deleteVocabRequest,
   fetchVocabStats,
@@ -31,6 +32,14 @@ function lastDays(): string[] {
     d.setDate(d.getDate() - (DAYS - 1 - i))
     return isoDay(d)
   })
+}
+
+/** День, с которого перед экзаменом не вводятся новые слова; пусто — экзамена нет или он прошёл. */
+function quietStart(examDate: string): string {
+  if (!examDate || examDate < isoDay(new Date())) return ''
+  const d = new Date(`${examDate}T00:00:00`)
+  d.setDate(d.getDate() - EXAM_QUIET_DAYS)
+  return isoDay(d)
 }
 
 /** Блок «Словарь» в карточке ученика (только облачный режим). */
@@ -126,6 +135,9 @@ export function StudentVocab({ student }: { student: Student }) {
     }
   }
 
+  // перед экзаменом новые слова не вводятся (правило — в vocab_session)
+  const quietFrom = quietStart(student.examDate)
+
   const queued = stats.queued ?? []
   const requests = stats.requests ?? []
   const onDropRequest = async (id: string) => {
@@ -175,6 +187,11 @@ export function StudentVocab({ student }: { student: Student }) {
         </button>
       </div>
 
+      {quietFrom && (
+        <p className="muted small">
+          Экзамен {formatDate(student.examDate)}: с {formatDate(quietFrom)} новые слова не вводятся — только повторение.
+        </p>
+      )}
       {error && <p className="error-text">{error}</p>}
       {stats.words_total === 0 && (
         <p className="muted small">Словарь пуст — загрузите слова в «Данные → Добавить из файла».</p>

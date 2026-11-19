@@ -5,6 +5,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 /** Маркер пропуска в тексте контекста. */
 export const BLANK = '____'
+/** За столько дней до экзамена тренер перестаёт вводить новые слова (то же число — в vocab_session, SQL). */
+export const EXAM_QUIET_DAYS = 2
 
 export interface VocabContext {
   /** Предложение или отрывок с пропуском (BLANK) на месте слова */

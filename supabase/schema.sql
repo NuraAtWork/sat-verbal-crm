@@ -1249,6 +1249,8 @@ $$;
 
 -- Сессия ученика (этап 2): слова из личной очереди идут первыми и мимо фильтра колод;
 -- glossary — значения слов-дистракторов для пояснений после ответа.
+-- За 2 дня до экзамена (students.exam_date) и в день экзамена новые слова не вводятся — только повторение.
+-- Число дней продублировано в EXAM_QUIET_DAYS (src/vocab.ts).
 create or replace function public.vocab_session(p_token text, p_day_start timestamptz)
 returns jsonb
 language plpgsql
@@ -1259,6 +1261,8 @@ declare
   e public.vocab_enrollments;
   v_day timestamptz;
   v_student text;
+  v_exam date;
+  v_local date;
   v_introduced integer;
   v_new_left integer;
   v_total integer;
@@ -1277,12 +1281,18 @@ begin
   end if;
   -- начало дня не раньше чем сутки назад и не в будущем
   v_day := least(now(), greatest(coalesce(p_day_start, now() - interval '24 hours'), now() - interval '24 hours'));
-  select split_part(trim(name), ' ', 1) into v_student from public.students where id = e.student_id;
+  select split_part(trim(name), ' ', 1), exam_date into v_student, v_exam
+    from public.students where id = e.student_id;
 
   select count(*) into v_introduced
     from public.vocab_progress p
    where p.student_id = e.student_id and p.introduced_at >= v_day;
   v_new_left := greatest(0, e.new_per_day - v_introduced);
+  -- местная дата ученика: его полночь отстоит от полуночи UTC не больше чем на полсуток
+  v_local := ((v_day + interval '11 hours') at time zone 'UTC')::date;
+  if v_exam is not null and v_local between v_exam - 2 and v_exam then
+    v_new_left := 0;
+  end if;
 
   select coalesce(jsonb_agg(x.j order by x.due_at), '[]'::jsonb) into v_due
     from (
