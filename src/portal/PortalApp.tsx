@@ -369,9 +369,17 @@ function VocabRow({ vocab, done }: { vocab: PortalVocab; done: boolean }) {
   )
 }
 
-function LessonBody({ lesson }: { lesson: PortalLesson }) {
+function LessonBody({ lesson, full }: { lesson: PortalLesson; full?: boolean }) {
+  const parts: [string, string | undefined][] = full
+    ? [
+        ['Цели урока', lesson.goals],
+        ['Хороший результат', lesson.success],
+        ['Теория', lesson.theory],
+      ]
+    : []
   return (
     <>
+      {lesson.title && <div className="pt-lesson-title">{lesson.title}</div>}
       {lesson.topics.length > 0 && (
         <div className="pt-chips">
           {lesson.topics.map((t) => (
@@ -381,13 +389,22 @@ function LessonBody({ lesson }: { lesson: PortalLesson }) {
           ))}
         </div>
       )}
+      {parts.map(
+        ([label, text]) =>
+          text && (
+            <div key={label}>
+              <div className="pt-label">{label}</div>
+              <p className="pt-homework">{text}</p>
+            </div>
+          ),
+      )}
       {lesson.homework ? (
         <div>
           <div className="pt-label">Домашнее задание</div>
           <p className="pt-homework">{lesson.homework}</p>
         </div>
       ) : (
-        lesson.topics.length === 0 && <p className="solve-muted">Темы и задание к уроку не записаны.</p>
+        lesson.topics.length === 0 && !lesson.title && <p className="solve-muted">Темы и задание к уроку не записаны.</p>
       )}
     </>
   )
@@ -602,7 +619,7 @@ function LessonsSection({ v }: { v: View }) {
                 {shortDate(l.date)}
                 {l.duration_min > 0 && <span> · {l.duration_min} мин</span>}
               </div>
-              <LessonBody lesson={l} />
+              <LessonBody lesson={l} full />
             </li>
           ))}
         </ul>

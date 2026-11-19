@@ -29,6 +29,47 @@ export interface Lesson {
   homework: string
   notes: string
   paid: boolean
+  /** Содержание урока из конструктора; у старых уроков его нет */
+  plan?: LessonPlan | null
+}
+
+/** Достигнут ли «хороший результат» урока ('' — не отмечено). */
+export type LessonOutcome = '' | 'reached' | 'partly' | 'missed'
+
+/** Содержание урока: что хотим получить, как объясняем и на чём тренируемся. */
+export interface LessonPlan {
+  /** Тема урока одной строкой */
+  title: string
+  /** Цели: что ученик сможет делать после урока (по строке на цель) */
+  goals: string
+  /** Хороший результат: по чему видно, что цель достигнута */
+  success: string
+  /** Теория: что и как объясняем */
+  theory: string
+  /** Практика на уроке: ход работы словами */
+  practice: string
+  /** Сеты (question_sets.id), которые решаем на уроке */
+  practiceSetIds: string[]
+  /** Сеты, которые задаём на дом (в облаке становятся заданиями ученика) */
+  homeworkSetIds: string[]
+  /** Срок сдачи домашних сетов, YYYY-MM-DD или пусто */
+  homeworkDue: string
+  /** Итог после урока */
+  outcome: LessonOutcome
+  /** id заготовки, из которой собран урок ('' — с нуля) */
+  templateId: string
+}
+
+/** Заготовка урока: тот же план без ученика и даты. */
+export interface LessonTemplate {
+  id: string
+  /** id навыков из SKILLS */
+  skills: string[]
+  durationMin: number
+  /** Текст домашнего задания по умолчанию */
+  homework: string
+  plan: LessonPlan
+  createdAt: string
 }
 
 export interface ScoreEntry {
@@ -65,6 +106,8 @@ export interface Db {
   lessons: Lesson[]
   scores: ScoreEntry[]
   materials: Material[]
+  /** Свои заготовки уроков (готовые лежат в коде — src/lessonPresets.ts) */
+  lessonTemplates: LessonTemplate[]
 }
 
 // --- Сеты вопросов и задания (только облачный режим) ---
@@ -159,4 +202,6 @@ export interface Assignment {
   /** Оценка балла R&W 200–800 по тесту (грубая) */
   scoreEstimate?: number | null
   moduleAnswers?: ModuleAnswers[] | null
+  /** Урок, из которого выдано задание как ДЗ */
+  lessonId?: string | null
 }

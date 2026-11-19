@@ -73,6 +73,7 @@ interface AssignmentRow {
   results: QuestionResult[] | null
   score_estimate?: number | null
   module_answers?: ModuleAnswers[] | null
+  lesson_id?: string | null
 }
 
 const ASSIGNMENT_COLS =
@@ -93,6 +94,7 @@ const rowToAssignment = (r: AssignmentRow): Assignment => ({
   results: r.results,
   scoreEstimate: r.score_estimate ?? null,
   moduleAnswers: r.module_answers ?? null,
+  lessonId: r.lesson_id ?? null,
 })
 
 export async function listAssignments(sb: SupabaseClient, studentId: string): Promise<Assignment[]> {
@@ -100,6 +102,7 @@ export async function listAssignments(sb: SupabaseClient, studentId: string): Pr
     sb.from('assignments').select(cols).eq('student_id', studentId).order('created_at', { ascending: false })
   // колонки тестов появляются после SQL из блока «Пробные тесты»; без них — как раньше
   let res = await query(`${ASSIGNMENT_COLS}, ${TEST_ASSIGNMENT_COLS}`)
+  if (res.error) res = await query(`${ASSIGNMENT_COLS}, score_estimate, module_answers`)
   if (res.error) res = await query(ASSIGNMENT_COLS)
   const data = check(res)
   return (data as unknown as AssignmentRow[]).map(rowToAssignment)
@@ -110,15 +113,17 @@ export async function createAssignment(
   studentId: string,
   setId: string,
   dueDate: string,
+  /** Урок, из которого выдаётся задание (ДЗ к уроку) */
+  lessonId?: string,
 ): Promise<Assignment> {
   const data = check(
     await sb
       .from('assignments')
-      .insert({ student_id: studentId, set_id: setId, due_date: dueDate || null })
-      .select(ASSIGNMENT_COLS)
+      .insert({ student_id: studentId, set_id: setId, due_date: dueDate || null, ...(lessonId && { lesson_id: lessonId }) })
+      .select(lessonId ? `${ASSIGNMENT_COLS}, lesson_id` : ASSIGNMENT_COLS)
       .single(),
   )
-  return rowToAssignment(data as AssignmentRow)
+  return rowToAssignment(data as unknown as AssignmentRow)
 }
 
 export async function deleteAssignment(sb: SupabaseClient, id: string): Promise<void> {
@@ -200,7 +205,8 @@ export function assignmentStatus(a: Assignment): { label: string; cls: string } 
 
 // --- Пробные тесты -------------------------------------------------------------------
 
-const TEST_ASSIGNMENT_COLS = 'score_estimate, module_answers'
+// ...и lesson_id — после блока «Конструктор уроков»
+const TEST_ASSIGNMENT_COLS = 'score_estimate, module_answers, lesson_id'
 
 export const isTestSet = (s: { kind?: string | null } | null | undefined) => s?.kind === 'test'
 

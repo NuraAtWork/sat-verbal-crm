@@ -1,4 +1,4 @@
-import { BookOpen, Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
 import { HashRouter, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Brand } from './components/Brand'
 import { CAN_EDIT_LIBRARY } from './permissions'
@@ -7,6 +7,8 @@ import { SyncStatus } from './components/SyncStatus'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Dashboard } from './pages/Dashboard'
 import { DataPage } from './pages/DataPage'
+import { LessonEditor } from './pages/LessonEditor'
+import { LessonTemplates, Lessons } from './pages/Lessons'
 import { MaterialFolder, Materials } from './pages/Materials'
 import { SetEditor } from './pages/SetEditor'
 import { SetViewer } from './pages/SetViewer'
@@ -18,6 +20,7 @@ import { VocabWords } from './pages/VocabWords'
 const NAV = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard, end: true },
   { to: '/students', label: 'Ученики', icon: Users },
+  { to: '/lessons', label: 'Уроки', icon: CalendarDays },
   { to: '/materials', label: 'Материалы', icon: FolderOpen },
   { to: '/words', label: 'Словарь', icon: BookOpen },
   { to: '/data', label: 'Данные', icon: Database },
@@ -57,6 +60,12 @@ export default function App() {
             <Route path="/students/new" element={<StudentForm />} />
             <Route path="/students/:id" element={<StudentDetail />} />
             <Route path="/students/:id/edit" element={<StudentForm />} />
+            <Route path="/lessons" element={<Lessons />} />
+            <Route path="/lessons/new" element={<LessonEditor mode="lesson" />} />
+            <Route path="/lessons/templates" element={<LessonTemplates />} />
+            <Route path="/lessons/templates/new" element={<LessonEditor mode="template" />} />
+            <Route path="/lessons/templates/:id" element={<LessonEditor mode="template" />} />
+            <Route path="/lessons/:id" element={<LessonEditor mode="lesson" />} />
             <Route path="/materials" element={<Materials />} />
             <Route path="/materials/:folder" element={<MaterialFolder />} />
             <Route path="/sets/new" element={CAN_EDIT_LIBRARY ? <SetEditor /> : <Navigate to="/materials" replace />} />

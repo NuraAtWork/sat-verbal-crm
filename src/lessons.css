@@ -1,0 +1,213 @@
+/* ===== Раздел «Уроки» и конструктор урока (CRM) ===== */
+
+.le-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.le-tabs a {
+  padding: 8px 12px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.le-tabs a:hover {
+  color: var(--text);
+}
+
+.le-tabs a.active {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+
+.le-filter {
+  width: auto;
+  min-width: 200px;
+}
+
+.le-nowrap {
+  white-space: nowrap;
+}
+
+/* --- Конструктор --- */
+
+.lesson-editor {
+  max-width: 880px;
+}
+
+.le-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.le-form > .card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.le-block-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.le-block-head h2 {
+  margin: 0 0 2px;
+}
+
+.le-block-head p {
+  margin: 0;
+}
+
+.le-num {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.le-narrow {
+  max-width: 200px;
+}
+
+.le-sets {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.le-sets li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.le-sets li:first-child {
+  border-top: 0;
+}
+
+.le-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.le-saved {
+  color: var(--ok-ink);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+/* итог урока: цвет значка и выбранной кнопки */
+.badge.le-outcome-reached,
+.chip.chip-on.le-outcome-reached {
+  background: var(--ok-soft);
+  color: var(--ok-ink);
+}
+
+.badge.le-outcome-partly,
+.chip.chip-on.le-outcome-partly {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+
+.badge.le-outcome-missed,
+.chip.chip-on.le-outcome-missed {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+
+/* --- Заготовки --- */
+
+.le-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.le-template {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.le-template-head {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 14px 4px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.le-template-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.le-chevron {
+  margin-left: auto;
+  align-self: center;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.le-template.open .le-chevron {
+  transform: rotate(180deg);
+}
+
+.le-template-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 14px 4px;
+}
+
+.le-part-label {
+  margin-bottom: 3px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.le-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.le-template-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .le-chevron {
+    transition: none;
+  }
+}
