@@ -262,7 +262,7 @@ export function StudentVocab({ student }: { student: Student }) {
           <div className="small muted">Ученик просил добавить — этих слов нет в словаре</div>
           <div className="chips">
             {requests.map((r) => (
-              <span key={r.id} className="chip small">
+              <span key={r.id} className="chip small vw-request">
                 {r.text}
                 <button className="icon-btn" title="Убрать из списка" onClick={() => void onDropRequest(r.id)}>
                   <X size={12} aria-hidden="true" />
