@@ -40,15 +40,37 @@ export function demoHome(): PortalHome {
         correct_count: 17, total_count: 24, score_estimate: null,
       },
     ],
-    lesson: {
-      date: addDays(t, -1),
-      topics: ['transitions', 'rhetorical-synthesis'],
-      homework: 'Сет по Transitions и первый модуль пробного теста. Слова — каждый день по 10 минут.',
-    },
+    lessons: [
+      {
+        date: addDays(t, -1), duration_min: 90, topics: ['transitions', 'rhetorical-synthesis'],
+        homework: 'Сет по Transitions и первый модуль пробного теста. Слова — каждый день по 10 минут.',
+      },
+      {
+        date: addDays(t, -5), duration_min: 90, topics: ['boundaries', 'form-structure-sense'],
+        homework: 'Boundaries · Set 02. Выписать правила про точку с запятой и двоеточие.',
+      },
+      {
+        date: addDays(t, -8), duration_min: 60, topics: ['words-in-context'],
+        homework: 'Words in Context · Set 07, перед ответом закрывать варианты рукой.',
+      },
+      { date: addDays(t, -12), duration_min: 90, topics: ['central-ideas', 'inferences'], homework: '' },
+    ],
     lessons_count: 9,
     topics: {
       'words-in-context': 3, 'text-structure': 2, 'central-ideas': 2, inferences: 1,
       boundaries: 2, 'form-structure-sense': 1, transitions: 2, 'rhetorical-synthesis': 1,
+    },
+    skills: {
+      'words-in-context': { total: 37, correct: 31, time_sec: 1700 },
+      'text-structure': { total: 14, correct: 10, time_sec: 980 },
+      'cross-text': { total: 4, correct: 2, time_sec: 420 },
+      'central-ideas': { total: 12, correct: 11, time_sec: 800 },
+      'evidence-textual': { total: 11, correct: 7, time_sec: 990 },
+      'evidence-quant': { total: 6, correct: 5, time_sec: 430 },
+      inferences: { total: 12, correct: 8, time_sec: 1010 },
+      boundaries: { total: 36, correct: 25, time_sec: 1500 },
+      'form-structure-sense': { total: 13, correct: 12, time_sec: 560 },
+      transitions: { total: 10, correct: 9, time_sec: 400 },
     },
     scores: [
       { date: addDays(t, -40), source: 'Bluebook PT 1', score: 560 },

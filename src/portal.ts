@@ -30,6 +30,13 @@ export interface PortalVocab {
   reviews_today: number
 }
 
+export interface PortalLesson {
+  date: string
+  duration_min: number
+  topics: string[]
+  homework: string
+}
+
 export interface PortalHome {
   student: string | null
   exam_date: string | null
@@ -37,8 +44,11 @@ export interface PortalHome {
   target_score: number | null
   /** Новые — первыми */
   assignments: PortalAssignment[]
-  lesson: { date: string; topics: string[]; homework: string } | null
+  /** Прошедшие уроки, новые первыми */
+  lessons: PortalLesson[]
   lessons_count: number
+  /** Точность по навыкам в сданных заданиях: id навыка → счётчики */
+  skills: Record<string, { total: number; correct: number; time_sec: number }>
   /** Сколько уроков было по навыку: id навыка → число */
   topics: Record<string, number>
   /** По возрастанию даты */
@@ -57,7 +67,10 @@ export async function fetchPortalHome(sb: SupabaseClient, token: string): Promis
   const day = new Date()
   day.setHours(0, 0, 0, 0)
   const data = check(await sb.rpc('student_home', { p_token: token, p_day_start: day.toISOString() }))
-  return (data as PortalHome | null) ?? null
+  if (!data) return null
+  // поля, которых нет в старой версии функции student_home
+  const h = data as PortalHome
+  return { ...h, lessons: h.lessons ?? [], skills: h.skills ?? {} }
 }
 
 // --- Репетитор ---------------------------------------------------------------------

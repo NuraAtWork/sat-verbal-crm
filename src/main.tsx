@@ -20,7 +20,8 @@ const solveToken = window.location.hash.match(SOLVE_RE)?.[1]
 const VOCAB_RE = /^#\/vocab\/([0-9a-f]{64}|demo)\/?$/
 const vocabToken = window.location.hash.match(VOCAB_RE)?.[1]
 // Кабинет ученика (#/me/<token>) — постоянная ссылка на все его задания; #/me/demo — демо.
-const PORTAL_RE = /^#\/me\/([0-9a-f]{64}|demo)\/?$/
+// После токена может идти раздел кабинета: #/me/<token>/lessons.
+const PORTAL_RE = /^#\/me\/([0-9a-f]{64}|demo)(?:\/[a-z]*)?\/?$/
 const portalToken = window.location.hash.match(PORTAL_RE)?.[1]
 
 // Если ссылку ученика вставили во вкладку, где уже открыта CRM (или наоборот), перезагружаемся в нужный режим.
