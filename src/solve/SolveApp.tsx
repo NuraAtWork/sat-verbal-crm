@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { QuestionView } from '../components/QuestionView'
+import { PortalBack } from '../portal/PortalBack'
 import { formatDate } from '../dates'
 import {
   formatDuration,
@@ -179,6 +180,7 @@ function Solve({ sb, token }: { sb: SupabaseClient; token: string }) {
     return (
       <Shell title={data.title}>
         <div className="solve-card">
+          <PortalBack />
           <p className="solve-muted">{data.student ? `${data.student}, привет!` : 'Привет!'}</p>
           <h1>{data.title}</h1>
           <ul className="solve-facts">
@@ -373,6 +375,7 @@ function Results({ token, data, result }: { token: string; data: StudentAssignme
   return (
     <div className="player">
       <div className="solve-card results-card">
+        <PortalBack />
         <p className="solve-muted">{data.title}</p>
         <div className="results-score">
           {result.correct_count} <span>/ {result.total_count}</span>

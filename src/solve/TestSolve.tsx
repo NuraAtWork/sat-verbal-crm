@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify'
 import { Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Flag } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QuestionView } from '../components/QuestionView'
+import { PortalBack } from '../portal/PortalBack'
 import { WordLookup } from '../vocab/WordLookup'
 import { formatDate } from '../dates'
 import {
@@ -195,6 +196,7 @@ export function TestSolve({ sb, token, data }: { sb: SupabaseClient; token: stri
   if (done === 0) {
     return (
       <div className="solve-card tp-intro">
+        <PortalBack />
         <p className="solve-muted">{data.student ? `${data.student}, привет!` : 'Привет!'}</p>
         <h1>{data.title}</h1>
         <p className="tp-kicker">Пробный тест · Reading and Writing</p>
@@ -589,6 +591,7 @@ function TestResults({
   return (
     <div className="player tp-results">
       <div className="solve-card results-card">
+        <PortalBack />
         <p className="solve-muted">{data.title}</p>
         <div className="tp-score-label">Оценка балла Reading and Writing</div>
         <div className="results-score">≈ {score ?? '—'}</div>
