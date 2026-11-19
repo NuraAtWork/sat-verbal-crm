@@ -35,6 +35,11 @@ export interface PortalLesson {
   duration_min: number
   topics: string[]
   homework: string
+  /** Из конструктора урока; у старых уроков пусто */
+  title?: string
+  goals?: string
+  success?: string
+  theory?: string
 }
 
 export interface PortalHome {

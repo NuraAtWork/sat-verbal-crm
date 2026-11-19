@@ -43,6 +43,10 @@ export function demoHome(): PortalHome {
     lessons: [
       {
         date: addDays(t, -1), duration_min: 90, topics: ['transitions', 'rhetorical-synthesis'],
+        title: 'Transitions: логическая связка между предложениями',
+        goals: 'Определяет отношение между предложениями до чтения вариантов.\nРазличает близкие связки внутри одной группы.',
+        success: 'Не меньше 9 из 10 верно в самостоятельной части.',
+        theory: 'Шаги: прочитать предложение до и после пропуска → назвать отношение → выбрать связку из нужной группы.\nКонтраст: however, by contrast, nevertheless. Причина: therefore, thus, as a result.',
         homework: 'Сет по Transitions и первый модуль пробного теста. Слова — каждый день по 10 минут.',
       },
       {

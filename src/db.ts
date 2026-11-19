@@ -1,8 +1,48 @@
-import type { Db, Lesson, Material, ScoreEntry, Student } from './types'
+import type { Db, Lesson, LessonPlan, LessonTemplate, Material, ScoreEntry, Student } from './types'
 
 export const STORAGE_KEY = 'sat-verbal-crm:v1'
 
-export const emptyDb = (): Db => ({ version: 1, students: [], lessons: [], scores: [], materials: [] })
+export const emptyDb = (): Db => ({
+  version: 1,
+  students: [],
+  lessons: [],
+  scores: [],
+  materials: [],
+  lessonTemplates: [],
+})
+
+export const emptyPlan = (): LessonPlan => ({
+  title: '',
+  goals: '',
+  success: '',
+  theory: '',
+  practice: '',
+  practiceSetIds: [],
+  homeworkSetIds: [],
+  homeworkDue: '',
+  outcome: '',
+  templateId: '',
+})
+
+/** План урока с заполненными пропусками (данные из базы или файла могут быть неполными). */
+export function normalizePlan(value: unknown): LessonPlan {
+  const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
+  const str = (x: unknown) => (typeof x === 'string' ? x : '')
+  const ids = (x: unknown) => (Array.isArray(x) ? x.filter((i): i is string => typeof i === 'string') : [])
+  const outcome = str(v.outcome)
+  return {
+    title: str(v.title),
+    goals: str(v.goals),
+    success: str(v.success),
+    theory: str(v.theory),
+    practice: str(v.practice),
+    practiceSetIds: ids(v.practiceSetIds),
+    homeworkSetIds: ids(v.homeworkSetIds),
+    homeworkDue: str(v.homeworkDue),
+    outcome: outcome === 'reached' || outcome === 'partly' || outcome === 'missed' ? outcome : '',
+    templateId: str(v.templateId),
+  }
+}
 
 /**
  * Проверяет сохранённые/импортированные данные и дополняет поля,
@@ -20,6 +60,7 @@ export function normalizeDb(value: unknown): Db | null {
     lessons: v.lessons as Lesson[],
     scores: v.scores as ScoreEntry[],
     materials: Array.isArray(v.materials) ? (v.materials as Material[]) : [],
+    lessonTemplates: Array.isArray(v.lessonTemplates) ? (v.lessonTemplates as LessonTemplate[]) : [],
   }
 }
 
@@ -42,6 +83,8 @@ export type Action =
   | { type: 'score/delete'; id: string }
   | { type: 'material/upsert'; material: Material }
   | { type: 'material/delete'; id: string }
+  | { type: 'template/upsert'; template: LessonTemplate }
+  | { type: 'template/delete'; id: string }
   | { type: 'db/replace'; db: Db }
   /** Добавить записи из db: с тем же id — обновить, новые — добавить, ничего не удалять */
   | { type: 'db/merge'; db: Db }
@@ -77,6 +120,10 @@ export function reducer(db: Db, action: Action): Db {
       return { ...db, materials: upsert(db.materials, action.material) }
     case 'material/delete':
       return { ...db, materials: db.materials.filter((m) => m.id !== action.id) }
+    case 'template/upsert':
+      return { ...db, lessonTemplates: upsert(db.lessonTemplates, action.template) }
+    case 'template/delete':
+      return { ...db, lessonTemplates: db.lessonTemplates.filter((t) => t.id !== action.id) }
     case 'db/replace':
       return action.db
     case 'db/merge':
@@ -86,6 +133,7 @@ export function reducer(db: Db, action: Action): Db {
         lessons: action.db.lessons.reduce(upsert, db.lessons),
         scores: action.db.scores.reduce(upsert, db.scores),
         materials: action.db.materials.reduce(upsert, db.materials),
+        lessonTemplates: action.db.lessonTemplates.reduce(upsert, db.lessonTemplates),
       }
   }
 }

@@ -1505,6 +1505,49 @@ revoke all on function public.vocab_overview(text) from public, anon;
 grant execute on function public.vocab_overview(text) to authenticated;
 
 -- ============================================================================
+-- Конструктор уроков
+-- ----------------------------------------------------------------------------
+-- Урок собирается из блоков: тема, цели, «хороший результат», теория, практика (сеты на уроке),
+-- ДЗ (сеты → задания ученика) и итог. Всё содержание лежит в lessons.plan (jsonb, см. LessonPlan
+-- в src/types.ts). Свои заготовки уроков — lesson_templates; готовые заготовки лежат в коде.
+-- Блок стоит перед «Кабинетом ученика»: student_home читает lessons.plan.
+-- ============================================================================
+
+alter table public.lessons add column if not exists plan jsonb;
+
+-- Задание, выданное из урока как ДЗ. Без внешнего ключа: урок сохраняется очередью запросов и может
+-- попасть в базу чуть позже задания.
+alter table public.assignments add column if not exists lesson_id uuid;
+create index if not exists assignments_lesson_idx on public.assignments (lesson_id);
+
+create table if not exists public.lesson_templates (
+  id            uuid primary key,
+  owner_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  skills        text[] not null default '{}',
+  duration_min  integer not null default 60 check (duration_min >= 0),
+  homework      text not null default '',
+  plan          jsonb not null default '{}'::jsonb,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists lesson_templates_owner_idx on public.lesson_templates (owner_id);
+
+drop trigger if exists lesson_templates_touch on public.lesson_templates;
+create trigger lesson_templates_touch before update on public.lesson_templates
+  for each row execute function public.touch_updated_at();
+
+alter table public.lesson_templates enable row level security;
+revoke all on public.lesson_templates from anon;
+grant select, insert, update, delete on public.lesson_templates to authenticated;
+
+drop policy if exists "lesson_templates: own rows" on public.lesson_templates;
+create policy "lesson_templates: own rows" on public.lesson_templates
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+-- ============================================================================
 -- Кабинет ученика
 -- ----------------------------------------------------------------------------
 -- Постоянная ссылка #/me/<token> без входа: ученик видит свои задания (и переходит к ним), последний
@@ -1630,8 +1673,13 @@ begin
     'lessons', (
       select coalesce(jsonb_agg(x.j order by x.date desc, x.created_at desc), '[]'::jsonb)
         from (
+          -- из плана урока ученику идут тема, цели, результат и теория; заметки и итог — нет
           select jsonb_build_object('date', l.date, 'duration_min', l.duration_min,
-                                    'topics', to_jsonb(l.topics), 'homework', l.homework) as j,
+                                    'topics', to_jsonb(l.topics), 'homework', l.homework,
+                                    'title', coalesce(l.plan ->> 'title', ''),
+                                    'goals', coalesce(l.plan ->> 'goals', ''),
+                                    'success', coalesce(l.plan ->> 'success', ''),
+                                    'theory', coalesce(l.plan ->> 'theory', '')) as j,
                  l.date, l.created_at
             from public.lessons l
            where l.student_id = s.id
