@@ -1092,7 +1092,8 @@ create policy "vocab_requests: own rows" on public.vocab_requests
   with check (owner_id = (select auth.uid()));
 
 -- Ставит в очередь ученика слова из вопросов Words in Context, где он ошибся или не ответил:
--- все четыре варианта ответа, которые есть в словаре. Уже изучаемые слова возвращает на повторение.
+-- верный вариант и тот, что выбрал ученик (если они есть в словаре) — остальные два варианта он
+-- отбросил сам. Уже изучаемые слова возвращает на повторение.
 -- Вызывается триггером при сдаче задания; повторный вызов ничего не дублирует.
 create or replace function public.vocab_queue_from_assignment(p_assignment uuid)
 returns integer
@@ -1129,7 +1130,8 @@ begin
 
     select array_agg(lower(trim(regexp_replace(regexp_replace(c ->> 'html', '<[^>]*>', '', 'g'), '(&nbsp;|\s)+', ' ', 'g'))))
       into cands
-      from jsonb_array_elements(q -> 'choices') c;
+      from jsonb_array_elements(q -> 'choices') c
+     where c ->> 'letter' in (r ->> 'correct', coalesce(r ->> 'answer', ''));
     continue when cands is null;
 
     select array_agg(w.id) into ids
@@ -1440,5 +1442,11 @@ revoke all on function public.vocab_assignment_submitted() from public, anon, au
 revoke all on function public.vocab_lookup(text, text[], text, boolean) from public;
 grant execute on function public.vocab_lookup(text, text[], text, boolean) to anon, authenticated;
 
--- Разовый добор: очередь по уже сданным заданиям (повторный запуск ничего не дублирует).
+-- Очередь из ошибок пересобирается по сданным заданиям: ещё не начатые слова из ошибок убираются и
+-- ставятся заново по текущему правилу (повторный запуск даёт тот же результат).
+delete from public.vocab_student_words sw
+ where sw.source = 'mistake'
+   and not exists (
+     select 1 from public.vocab_progress p where p.student_id = sw.student_id and p.word_id = sw.word_id
+   );
 select public.vocab_queue_from_assignment(a.id) from public.assignments a where a.submitted_at is not null;
