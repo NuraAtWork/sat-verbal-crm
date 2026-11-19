@@ -17,6 +17,7 @@ import {
   type VocabWord,
 } from '../vocab'
 import { demoBackend } from './demo'
+import { PortalBack } from '../portal/PortalBack'
 import './vocab.css'
 
 // Тренер словаря для ученика: постоянная ссылка #/vocab/<token>, без входа.
@@ -198,6 +199,7 @@ function Vocab({ backend, demo }: { backend: VocabBackend; demo: boolean }) {
     return (
       <Shell>
         <div className="solve-card vt-card">
+          <PortalBack />
           <p className="vt-label">Сессия завершена</p>
           <h1>Отлично поработали!</h1>
           <div className="vt-tiles">
@@ -223,6 +225,7 @@ function Vocab({ backend, demo }: { backend: VocabBackend; demo: boolean }) {
   return (
     <Shell>
       <div className="solve-card vt-card">
+        <PortalBack />
         <p className="solve-muted">{session.student ? `${session.student}, привет!` : 'Привет!'}</p>
         <h1>Словарь{demo && ' · демо'}</h1>
         <div className="vt-tiles">

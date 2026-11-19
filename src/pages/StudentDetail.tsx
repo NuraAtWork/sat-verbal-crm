@@ -5,6 +5,7 @@ import { StudentAssignments } from '../components/Assignments'
 import { NextSets, SkillAnalyticsCard } from '../components/SkillAnalytics'
 import { ScoreChart } from '../components/ScoreChart'
 import { StatusBadge } from '../components/StatusBadge'
+import { StudentPortal } from '../components/StudentPortal'
 import { StudentVocab } from '../components/StudentVocab'
 import { describeExam, formatDate, today } from '../dates'
 import { DOMAINS, SKILLS, parseScore, skillName } from '../sat'
@@ -101,6 +102,11 @@ export function StudentDetail() {
 
       {/* В облаке «проходили на уроках» и «как решает» — одна таблица навыков вместо «Пройденных тем». */}
       {skillData.enabled && <SkillAnalyticsCard data={skillData} lessons={lessons} onReload={reload} />}
+
+      <section className="card">
+        <h2>Кабинет ученика</h2>
+        <StudentPortal key={student.id} student={student} />
+      </section>
 
       <section className="card">
         <h2>Задания</h2>

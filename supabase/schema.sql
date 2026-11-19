@@ -1503,3 +1503,139 @@ $$;
 
 revoke all on function public.vocab_overview(text) from public, anon;
 grant execute on function public.vocab_overview(text) to authenticated;
+
+-- ============================================================================
+-- Кабинет ученика
+-- ----------------------------------------------------------------------------
+-- Постоянная ссылка #/me/<token> без входа: ученик видит свои задания (и переходит к ним), последний
+-- урок с ДЗ, баллы пробных тестов, пройденные темы и состояние тренера слов. Кабинет только читает:
+-- всё собирает одна функция student_home. Оплата, заметки репетитора и контакты ученику не отдаются.
+-- ============================================================================
+
+create table if not exists public.student_portals (
+  student_id  uuid primary key references public.students (id) on delete cascade,
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  token       text not null unique
+              default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists student_portals_owner_idx on public.student_portals (owner_id);
+
+alter table public.student_portals enable row level security;
+revoke all on public.student_portals from anon;
+-- ссылку нельзя править: чтобы сменить её, кабинет закрывают и открывают заново
+revoke all on public.student_portals from authenticated;
+grant select, insert, delete on public.student_portals to authenticated;
+
+drop policy if exists "student_portals: own rows" on public.student_portals;
+create policy "student_portals: own rows" on public.student_portals
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and exists (select 1 from public.students s where s.id = student_id and s.owner_id = (select auth.uid()))
+  );
+
+-- Всё содержимое кабинета одним ответом. p_day_start — начало «сегодня» по часам ученика
+-- (чтобы понять, занимался ли он сегодня словами).
+create or replace function public.student_home(p_token text, p_day_start timestamptz)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  p public.student_portals;
+  s public.students;
+  e public.vocab_enrollments;
+  v_day timestamptz;
+  v_vocab jsonb;
+begin
+  select * into p from public.student_portals where token = p_token;
+  if not found then
+    return null;
+  end if;
+  select * into s from public.students where id = p.student_id;
+  v_day := least(now(), greatest(coalesce(p_day_start, now() - interval '24 hours'), now() - interval '24 hours'));
+
+  select * into e from public.vocab_enrollments where student_id = s.id;
+  if found then
+    v_vocab := jsonb_build_object(
+      'token', e.token,
+      'due', (select count(*) from public.vocab_progress vp where vp.student_id = s.id and vp.due_at <= now()),
+      'started', (select count(*) from public.vocab_progress vp where vp.student_id = s.id),
+      'known', (select count(*) from public.vocab_progress vp where vp.student_id = s.id and vp.stage >= 5),
+      'reviews_today', (
+        select count(*) from public.vocab_reviews r
+         where r.student_id = s.id and r.created_at >= v_day and r.exercise <> 'intro'
+      )
+    );
+  end if;
+
+  return jsonb_build_object(
+    'student', split_part(trim(s.name), ' ', 1),
+    'exam_date', s.exam_date,
+    'baseline_score', s.baseline_score,
+    'target_score', s.target_score,
+    'assignments', (
+      select coalesce(jsonb_agg(x.j order by x.created_at desc), '[]'::jsonb)
+        from (
+          select jsonb_build_object(
+                   'token', a.token,
+                   'title', q.title,
+                   'kind', q.kind,
+                   'questions', jsonb_array_length(q.questions),
+                   'minutes', (
+                     select sum((m ->> 'minutes')::integer)
+                       from jsonb_array_elements(case when jsonb_typeof(q.modules) = 'array' then q.modules else '[]'::jsonb end) m
+                   ),
+                   'due_date', a.due_date,
+                   'created_at', a.created_at,
+                   'started_at', a.started_at,
+                   'submitted_at', a.submitted_at,
+                   'correct_count', a.correct_count,
+                   'total_count', a.total_count,
+                   'score_estimate', a.score_estimate
+                 ) as j,
+                 a.created_at
+            from public.assignments a
+            join public.question_sets q on q.id = a.set_id
+           where a.student_id = s.id
+           order by a.created_at desc
+           limit 200
+        ) x
+    ),
+    -- последний прошедший урок: темы и ДЗ (заметки репетитора и оплата не отдаются)
+    'lesson', (
+      select jsonb_build_object('date', l.date, 'topics', to_jsonb(l.topics), 'homework', l.homework)
+        from public.lessons l
+       where l.student_id = s.id and l.date <= (now() + interval '14 hours')::date
+       order by l.date desc, l.created_at desc
+       limit 1
+    ),
+    'lessons_count', (select count(*) from public.lessons l where l.student_id = s.id),
+    -- сколько уроков было по каждому навыку: {"transitions": 2, ...}
+    'topics', (
+      select coalesce(jsonb_object_agg(t.topic, t.n), '{}'::jsonb)
+        from (
+          select u.topic, count(*) as n
+            from public.lessons l, unnest(l.topics) as u(topic)
+           where l.student_id = s.id
+           group by u.topic
+        ) t
+    ),
+    'scores', (
+      select coalesce(jsonb_agg(jsonb_build_object('date', sc.date, 'source', sc.source, 'score', sc.score)
+               order by sc.date, sc.created_at), '[]'::jsonb)
+        from public.scores sc
+       where sc.student_id = s.id
+    ),
+    'vocab', v_vocab
+  );
+end;
+$$;
+
+revoke all on function public.student_home(text, timestamptz) from public;
+grant execute on function public.student_home(text, timestamptz) to anon, authenticated;
