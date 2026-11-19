@@ -1626,6 +1626,39 @@ begin
            group by u.topic
         ) t
     ),
+    -- прошедшие уроки, новые первыми (для раздела «Уроки»)
+    'lessons', (
+      select coalesce(jsonb_agg(x.j order by x.date desc, x.created_at desc), '[]'::jsonb)
+        from (
+          select jsonb_build_object('date', l.date, 'duration_min', l.duration_min,
+                                    'topics', to_jsonb(l.topics), 'homework', l.homework) as j,
+                 l.date, l.created_at
+            from public.lessons l
+           where l.student_id = s.id
+           order by l.date desc, l.created_at desc
+           limit 60
+        ) x
+    ),
+    -- точность по навыкам в сданных заданиях: {"transitions": {"total": 24, "correct": 19, "time_sec": 900}}.
+    -- Навык вопроса — его поле skill, иначе навык сета, если он у сета один (как в src/analytics.ts).
+    'skills', (
+      select coalesce(jsonb_object_agg(t.skill, jsonb_build_object(
+               'total', t.total, 'correct', t.correct, 'time_sec', t.time_sec)), '{}'::jsonb)
+        from (
+          select coalesce(nullif(q.questions -> ((r ->> 'n')::integer - 1) ->> 'skill', ''),
+                          case when cardinality(q.skills) = 1 then q.skills[1] end) as skill,
+                 count(*) as total,
+                 count(*) filter (where (r ->> 'is_correct')::boolean) as correct,
+                 coalesce(sum((r ->> 'time_sec')::integer), 0) as time_sec
+            from public.assignments a
+            join public.question_sets q on q.id = a.set_id
+           cross join lateral jsonb_array_elements(
+                   case when jsonb_typeof(a.results) = 'array' then a.results else '[]'::jsonb end) r
+           where a.student_id = s.id and a.submitted_at is not null
+           group by 1
+        ) t
+       where t.skill is not null
+    ),
     'scores', (
       select coalesce(jsonb_agg(jsonb_build_object('date', sc.date, 'source', sc.source, 'score', sc.score)
                order by sc.date, sc.created_at), '[]'::jsonb)

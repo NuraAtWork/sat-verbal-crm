@@ -1,11 +1,9 @@
 /* ===== Кабинет ученика (#/me/<token>) — всегда светлый, как остальные страницы ученика ===== */
 
-.portal {
-  max-width: 720px;
-  margin: 24px auto 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.solve.portal {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  padding: 0;
   /* токены CRM для графика баллов: тёмная тема репетитора сюда не протекает */
   --surface: #fff;
   --text: #111318;
@@ -16,12 +14,150 @@
   --border: #e6e6eb;
 }
 
+/* --- Боковая панель --- */
+
+.pt-side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
+  background: #fff;
+  border-right: 1px solid #e6e6eb;
+}
+
+.pt-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #111318;
+}
+
+.pt-brand small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #6e7180;
+}
+
+.pt-brand-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #5b5bd6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pt-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pt-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #3d404b;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pt-nav a svg {
+  flex-shrink: 0;
+  color: #6e7180;
+}
+
+.pt-nav a:hover {
+  background: #f1f1f4;
+  color: #111318;
+}
+
+.pt-nav a.active {
+  background: #eeeefd;
+  color: #4444b8;
+}
+
+.pt-nav a.active svg {
+  color: #5b5bd6;
+}
+
+.pt-nav a:focus-visible,
+.pt-side-exam:focus-visible {
+  outline: 3px solid rgba(91, 91, 214, 0.35);
+  outline-offset: 1px;
+}
+
+.pt-badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #5b5bd6;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-side-exam {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid #e6e6eb;
+  border-radius: 10px;
+  background: #fcfcfd;
+  color: #111318;
+  text-decoration: none;
+}
+
+.pt-side-exam strong {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.pt-side-exam span {
+  font-size: 12.5px;
+  color: #6e7180;
+}
+
+/* --- Основная часть --- */
+
+.pt-main {
+  min-width: 0;
+  width: 100%;
+  max-width: 860px;
+  padding: 28px 36px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pt-head h1 {
+  margin: 0 0 4px;
+}
+
 .pt-card {
   background: #fff;
   border: 1px solid #e6e6eb;
   border-radius: 14px;
-  padding: 22px 24px;
-  box-shadow: 0 4px 16px rgba(17, 19, 24, 0.05);
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -31,12 +167,8 @@
   margin: 0;
 }
 
-.portal h1 {
-  margin: 0;
-}
-
 .portal h2 {
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 600;
   color: #111318;
 }
@@ -48,6 +180,32 @@
   color: #6e7180;
 }
 
+.pt-soon {
+  background: transparent;
+  border-style: dashed;
+  border-color: #d5d6de;
+  gap: 6px;
+}
+
+.pt-soon h2 {
+  color: #3d404b;
+}
+
+.pt-soon-tag {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #eef0f3;
+  color: #6e7180;
+  font-size: 11.5px;
+  font-weight: 500;
+  vertical-align: 1px;
+}
+
+.pt-fine {
+  font-size: 13px;
+}
+
 .pt-label {
   margin-bottom: 6px;
   font-size: 12.5px;
@@ -57,7 +215,7 @@
 
 .pt-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
@@ -65,14 +223,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid #e6e6eb;
-  border-radius: 10px;
-  background: #fcfcfd;
+  border-radius: 12px;
+  background: #fff;
 }
 
 .pt-tile-value {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   color: #111318;
@@ -188,27 +346,163 @@
   border-style: dashed;
 }
 
-.pt-coverage {
+.pt-coverage,
+.pt-skills {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .pt-domain {
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   font-size: 12.5px;
-  color: #3d404b;
+  font-weight: 500;
+  color: #6e7180;
+}
+
+/* --- Полоски: точность по навыкам, путь к цели --- */
+
+.pt-bar {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: #eeeef2;
+  overflow: hidden;
+}
+
+.pt-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #5b5bd6;
+}
+
+.pt-bar-big {
+  height: 12px;
+  border-radius: 6px;
+}
+
+.pt-skill {
+  display: grid;
+  grid-template-columns: minmax(0, 15em) minmax(60px, 1fr) 84px;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.pt-skill-name {
+  color: #111318;
+  overflow-wrap: anywhere;
+}
+
+.pt-skill-num {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #111318;
+}
+
+.pt-skill-num small {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6e7180;
+}
+
+.pt-skill-weak .pt-bar > span {
+  background: #d1483f;
+}
+
+.pt-skill-weak .pt-skill-num {
+  color: #c2372f;
+}
+
+.pt-skill-strong .pt-bar > span {
+  background: #2a9558;
+}
+
+.pt-skill-strong .pt-skill-num {
+  color: #1d7a46;
+}
+
+.pt-skill-few .pt-bar > span {
+  background: #b9bbc6;
+}
+
+.pt-skill-few .pt-skill-num {
+  color: #6e7180;
+}
+
+.pt-path {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pt-path-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: #6e7180;
+}
+
+.pt-path-ends strong {
+  font-weight: 600;
+  color: #111318;
+}
+
+/* --- История уроков --- */
+
+.pt-lessons {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pt-lessons:empty {
+  display: none;
+}
+
+.pt-lessons > li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid #eeeef2;
+}
+
+.pt-lessons > li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.pt-lessons > li:last-child {
+  padding-bottom: 0;
+}
+
+.pt-lessons > li > * {
+  margin: 0;
+}
+
+.pt-lesson-date {
+  font-weight: 600;
+  color: #111318;
+}
+
+.pt-lesson-date span {
+  font-weight: 400;
+  color: #6e7180;
 }
 
 .pt-more {
   align-self: flex-start;
-  font: inherit;
   font-size: 13.5px;
-  padding: 0;
-  border: 0;
-  background: none;
   color: #5b5bd6;
-  cursor: pointer;
+  text-decoration: none;
 }
 
 .pt-more:hover {
@@ -229,7 +523,53 @@
   text-decoration: underline;
 }
 
-@media (max-width: 520px) {
+/* --- Телефон: панель становится лентой разделов сверху --- */
+
+@media (max-width: 800px) {
+  .solve.portal {
+    display: block;
+  }
+
+  .pt-side {
+    height: auto;
+    z-index: 3;
+    padding: 10px 0 8px;
+    border-right: 0;
+    border-bottom: 1px solid #e6e6eb;
+  }
+
+  .pt-brand {
+    padding: 0 16px 8px;
+  }
+
+  .pt-nav {
+    flex-direction: row;
+    gap: 4px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pt-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pt-nav a {
+    padding: 7px 12px;
+  }
+
+  .pt-badge {
+    margin-left: 0;
+  }
+
+  .pt-side-exam {
+    display: none;
+  }
+
+  .pt-main {
+    padding: 18px 16px 48px;
+  }
+
   .pt-card {
     padding: 18px 16px;
   }
@@ -240,5 +580,14 @@
 
   .pt-row-main {
     flex-basis: 100%;
+  }
+
+  .pt-skill {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+
+  .pt-skill .pt-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
