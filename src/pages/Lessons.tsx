@@ -1,16 +1,14 @@
 import { ChevronDown, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { formatDate } from '../dates'
-import { newId } from '../db'
-import { LESSON_PRESETS } from '../lessonPresets'
 import { OUTCOME_LABELS, lessonTitle } from '../lessons'
 import { skillName } from '../sat'
 import type { LessonTemplate } from '../types'
 import { useStore } from '../useStore'
 import '../lessons.css'
 
-// Раздел «Уроки»: все уроки по ученикам и заготовки (готовые и свои).
+// Раздел «Уроки»: все уроки по ученикам и свои заготовки.
 
 function Tabs() {
   return (
@@ -45,14 +43,11 @@ export function Lessons() {
         <div className="card">
           <p className="muted">
             Уроков пока нет. Урок собирается из блоков: тема, цели, хороший результат, теория, практика и домашнее
-            задание. Можно начать с готовой заготовки по навыку и поправить её под ученика.
+            задание. Удачный урок можно сохранить как заготовку и проводить снова.
           </p>
           <div className="row">
             <Link className="btn btn-primary" to="/lessons/new">
               Собрать урок
-            </Link>
-            <Link className="btn" to="/lessons/templates">
-              Посмотреть заготовки
             </Link>
           </div>
         </div>
@@ -114,19 +109,8 @@ export function Lessons() {
 }
 
 export function LessonTemplates() {
-  const { db, dispatch } = useStore()
-  const navigate = useNavigate()
+  const { db } = useStore()
   const own = [...db.lessonTemplates].sort((a, b) => a.plan.title.localeCompare(b.plan.title, 'ru'))
-
-  /** Копирует готовую заготовку в свои и открывает её для правки. */
-  const makeOwn = (t: LessonTemplate) => {
-    const id = newId()
-    dispatch({
-      type: 'template/upsert',
-      template: { ...t, id, plan: { ...t.plan, templateId: '' }, createdAt: new Date().toISOString() },
-    })
-    navigate(`/lessons/templates/${id}`)
-  }
 
   return (
     <div className="page">
@@ -142,8 +126,8 @@ export function LessonTemplates() {
         <h2>Мои заготовки</h2>
         {own.length === 0 ? (
           <p className="muted">
-            Своих заготовок пока нет. Соберите новую, сохраните удачный урок как заготовку или сделайте свою версию
-            готовой.
+            Заготовок пока нет. Соберите новую или сохраните удачный урок как заготовку — кнопка есть в конструкторе
+            урока.
           </p>
         ) : (
           <div className="le-templates">
@@ -159,26 +143,6 @@ export function LessonTemplates() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="card">
-        <h2>Готовые</h2>
-        <p className="muted small">
-          По одной на каждый навык Reading &amp; Writing и три служебных урока. Готовые заготовки не меняются — урок из
-          них правится под ученика, а «Сделать свою» создаёт копию для правки.
-        </p>
-        <div className="le-templates">
-          {LESSON_PRESETS.map((t) => (
-            <TemplateCard key={t.id} t={t}>
-              <Link className="btn btn-small btn-primary" to={`/lessons/new?template=${encodeURIComponent(t.id)}`}>
-                Провести урок
-              </Link>
-              <button className="btn btn-small" onClick={() => makeOwn(t)}>
-                Сделать свою
-              </button>
-            </TemplateCard>
-          ))}
-        </div>
       </section>
     </div>
   )

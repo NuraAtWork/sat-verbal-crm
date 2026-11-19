@@ -1,10 +1,9 @@
 import { X } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { SetSelectOptions } from '../components/Assignments'
 import { formatDate, today } from '../dates'
 import { emptyPlan, newId } from '../db'
-import { LESSON_PRESETS, isPreset } from '../lessonPresets'
 import { OUTCOME_LABELS } from '../lessons'
 import { SKILLS } from '../sat'
 import { createAssignment, listAssignments } from '../sets'
@@ -57,7 +56,7 @@ function Editor({ mode }: { mode: 'lesson' | 'template' }) {
 
   const lesson = !isTemplate && id ? db.lessons.find((l) => l.id === id) : undefined
   const template = isTemplate && id ? db.lessonTemplates.find((t) => t.id === id) : undefined
-  const templates = useMemo(() => [...db.lessonTemplates, ...LESSON_PRESETS], [db.lessonTemplates])
+  const templates = db.lessonTemplates
 
   const [draft, setDraft] = useState<Draft>(() => {
     if (lesson) {
@@ -295,28 +294,19 @@ function Editor({ mode }: { mode: 'lesson' | 'template' }) {
                 <span>Оплачен</span>
               </label>
             </div>
-            <label className="field">
-              <span>Собрать из заготовки</span>
-              <select className="input" value="" onChange={(e) => applyTemplate(e.target.value)}>
-                <option value="">{source ? `Сейчас: ${source.plan.title}` : 'С нуля — или выберите заготовку…'}</option>
-                {db.lessonTemplates.length > 0 && (
-                  <optgroup label="Мои заготовки">
-                    {db.lessonTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.plan.title || 'Без названия'}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="Готовые">
-                  {LESSON_PRESETS.map((t) => (
+            {templates.length > 0 && (
+              <label className="field">
+                <span>Собрать из заготовки</span>
+                <select className="input" value="" onChange={(e) => applyTemplate(e.target.value)}>
+                  <option value="">{source ? `Сейчас: ${source.plan.title}` : 'С нуля — или выберите заготовку…'}</option>
+                  {templates.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.plan.title}
+                      {t.plan.title || 'Без названия'}
                     </option>
                   ))}
-                </optgroup>
-              </select>
-            </label>
+                </select>
+              </label>
+            )}
           </section>
         )}
 
@@ -478,9 +468,6 @@ function Editor({ mode }: { mode: 'lesson' | 'template' }) {
           )}
         </div>
         {error && <p className="error-text">{error}</p>}
-        {draft.plan.templateId && isPreset(draft.plan.templateId) && !isTemplate && (
-          <p className="muted small">Собран из готовой заготовки — текст можно менять под ученика, сама заготовка не изменится.</p>
-        )}
       </form>
     </div>
   )

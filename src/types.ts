@@ -106,7 +106,7 @@ export interface Db {
   lessons: Lesson[]
   scores: ScoreEntry[]
   materials: Material[]
-  /** Свои заготовки уроков (готовые лежат в коде — src/lessonPresets.ts) */
+  /** Заготовки уроков репетитора */
   lessonTemplates: LessonTemplate[]
 }
 
