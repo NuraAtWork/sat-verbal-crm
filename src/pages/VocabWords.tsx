@@ -152,7 +152,7 @@ export function VocabWords() {
           </p>
           <div className="chips">
             {requests.map((r) => (
-              <span key={r.id} className="chip">
+              <span key={r.id} className="chip vw-request">
                 <button className="link-btn" onClick={() => setDraft(emptyDraft(r.text))}>
                   {r.text}
                 </button>

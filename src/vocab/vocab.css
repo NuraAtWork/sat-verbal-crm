@@ -409,6 +409,13 @@
 
 /* ===== Страница «Словарь» (CRM, обе темы) ===== */
 
+/* просьба ученика: слово, имя и крестик — с промежутками */
+.chip.vw-request {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .vw-context {
   display: flex;
   flex-direction: column;
