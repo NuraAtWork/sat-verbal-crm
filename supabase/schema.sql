@@ -1029,3 +1029,416 @@ revoke all on function public.vocab_stats(uuid, text) from public;
 grant execute on function public.vocab_session(text, timestamptz) to anon, authenticated;
 grant execute on function public.vocab_review(text, uuid, text, boolean, integer) to anon, authenticated;
 grant execute on function public.vocab_stats(uuid, text) to authenticated;
+
+-- ============================================================================
+-- Тренер словаря, этап 2: личная очередь слов, слова из ошибок, слово по клику в разборе
+-- ----------------------------------------------------------------------------
+-- vocab_words.forms — формы слова в нижнем регистре, по которым его узнают в вариантах ответа и
+--   в тексте (corroborates, a modest, contingent on).
+-- vocab_student_words — личная очередь ученика: эти слова тренер вводит раньше остальных.
+--   Попадают сюда из ошибок в вопросах Words in Context (триггер на сдачу задания) и по клику
+--   на слово в разборе задания (vocab_lookup).
+-- vocab_requests — слова, которых нет в словаре: ученик кликнул и попросил добавить.
+-- Этот блок ПЕРЕОПРЕДЕЛЯЕТ vocab_session и vocab_stats из блока выше (create or replace).
+-- ============================================================================
+
+alter table public.vocab_words add column if not exists forms text[] not null default '{}';
+
+create table if not exists public.vocab_student_words (
+  student_id  uuid not null references public.students (id) on delete cascade,
+  word_id     uuid not null references public.vocab_words (id) on delete cascade,
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  -- mistake — ошибка в вопросе Words in Context; tap — клик в разборе; tutor — добавил репетитор
+  source      text not null default 'tutor' check (source in ('mistake', 'tap', 'tutor')),
+  created_at  timestamptz not null default now(),
+  primary key (student_id, word_id)
+);
+
+create index if not exists vocab_student_words_owner_idx on public.vocab_student_words (owner_id);
+
+create table if not exists public.vocab_requests (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null references auth.users (id) on delete cascade,
+  student_id  uuid not null references public.students (id) on delete cascade,
+  text        text not null,
+  created_at  timestamptz not null default now(),
+  unique (student_id, text)
+);
+
+create index if not exists vocab_requests_owner_idx on public.vocab_requests (owner_id);
+
+alter table public.vocab_student_words enable row level security;
+alter table public.vocab_requests      enable row level security;
+
+revoke all on public.vocab_student_words, public.vocab_requests from anon;
+revoke all on public.vocab_student_words, public.vocab_requests from authenticated;
+grant select, insert, delete on public.vocab_student_words to authenticated;
+grant select, delete on public.vocab_requests to authenticated;
+
+drop policy if exists "vocab_student_words: own rows" on public.vocab_student_words;
+create policy "vocab_student_words: own rows" on public.vocab_student_words
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and exists (select 1 from public.students s where s.id = student_id and s.owner_id = (select auth.uid()))
+    and exists (select 1 from public.vocab_words w where w.id = word_id and w.owner_id = (select auth.uid()))
+  );
+
+drop policy if exists "vocab_requests: own rows" on public.vocab_requests;
+create policy "vocab_requests: own rows" on public.vocab_requests
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+-- Ставит в очередь ученика слова из вопросов Words in Context, где он ошибся или не ответил:
+-- все четыре варианта ответа, которые есть в словаре. Уже изучаемые слова возвращает на повторение.
+-- Вызывается триггером при сдаче задания; повторный вызов ничего не дублирует.
+create or replace function public.vocab_queue_from_assignment(p_assignment uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  a public.assignments;
+  s public.question_sets;
+  r jsonb;
+  q jsonb;
+  cands text[];
+  ids uuid[];
+  added integer := 0;
+  n integer;
+begin
+  select * into a from public.assignments where id = p_assignment;
+  if not found or a.results is null then
+    return 0;
+  end if;
+  select * into s from public.question_sets where id = a.set_id;
+
+  for r in select * from jsonb_array_elements(a.results) loop
+    continue when coalesce((r ->> 'is_correct')::boolean, false);
+    q := s.questions -> ((r ->> 'n')::integer - 1);
+    continue when q is null;
+    -- навык вопроса: свой (в тестах) или навык сета, если он целиком про Words in Context
+    continue when coalesce(
+      nullif(q ->> 'skill', ''),
+      case when s.skills = array['words-in-context'] then 'words-in-context' end,
+      ''
+    ) <> 'words-in-context';
+
+    select array_agg(lower(trim(regexp_replace(regexp_replace(c ->> 'html', '<[^>]*>', '', 'g'), '(&nbsp;|\s)+', ' ', 'g'))))
+      into cands
+      from jsonb_array_elements(q -> 'choices') c;
+    continue when cands is null;
+
+    select array_agg(w.id) into ids
+      from public.vocab_words w
+     where w.owner_id = a.owner_id and (lower(w.word) = any (cands) or w.forms && cands);
+    continue when ids is null;
+
+    insert into public.vocab_student_words (student_id, word_id, owner_id, source)
+    select a.student_id, x, a.owner_id, 'mistake' from unnest(ids) x
+    on conflict do nothing;
+    get diagnostics n = row_count;
+    added := added + n;
+
+    update public.vocab_progress
+       set due_at = least(due_at, now())
+     where student_id = a.student_id and word_id = any (ids);
+  end loop;
+
+  return added;
+end;
+$$;
+
+-- Сбой в словаре не должен мешать сдаче задания — поэтому ошибки здесь гасятся.
+create or replace function public.vocab_assignment_submitted()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  begin
+    perform public.vocab_queue_from_assignment(new.id);
+  exception when others then
+    null;
+  end;
+  return null;
+end;
+$$;
+
+drop trigger if exists assignments_vocab_queue on public.assignments;
+create trigger assignments_vocab_queue
+  after update of submitted_at on public.assignments
+  for each row
+  when (new.submitted_at is not null and old.submitted_at is null)
+  execute function public.vocab_assignment_submitted();
+
+-- Клик по слову в разборе сданного задания. p_candidates — слово и его возможные начальные формы
+-- (в нижнем регистре). Если слово есть в словаре — возвращает карточку и (при p_add) ставит слово в
+-- очередь ученика; если нет — при p_add записывает просьбу добавить слово (vocab_requests).
+create or replace function public.vocab_lookup(p_token text, p_candidates text[], p_text text, p_add boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  a public.assignments;
+  w public.vocab_words;
+  cands text[];
+  v_text text;
+  v_queued boolean;
+  v_learning boolean;
+  v_requested boolean := false;
+begin
+  select * into a from public.assignments where token = p_token;
+  if not found then
+    raise exception 'assignment not found';
+  end if;
+  if a.submitted_at is null then
+    raise exception 'assignment is not submitted';
+  end if;
+
+  select array_agg(distinct lower(trim(c))) into cands
+    from unnest(p_candidates[1:12]) c
+   where length(trim(c)) between 2 and 40;
+  if cands is null then
+    return jsonb_build_object('found', false, 'requested', false);
+  end if;
+
+  select * into w
+    from public.vocab_words x
+   where x.owner_id = a.owner_id and (lower(x.word) = any (cands) or x.forms && cands)
+   order by (lower(x.word) = lower(trim(p_candidates[1]))) desc
+   limit 1;
+
+  if found then
+    if coalesce(p_add, false) then
+      insert into public.vocab_student_words (student_id, word_id, owner_id, source)
+      values (a.student_id, w.id, a.owner_id, 'tap')
+      on conflict do nothing;
+    end if;
+    v_queued := exists (
+      select 1 from public.vocab_student_words sw where sw.student_id = a.student_id and sw.word_id = w.id
+    );
+    v_learning := exists (
+      select 1 from public.vocab_progress p where p.student_id = a.student_id and p.word_id = w.id
+    );
+    return jsonb_build_object(
+      'found', true, 'word', w.word, 'pos', w.pos, 'definition', w.definition,
+      'translation', w.translation, 'queued', v_queued, 'learning', v_learning
+    );
+  end if;
+
+  v_text := lower(trim(coalesce(p_text, '')));
+  if coalesce(p_add, false) and v_text ~ '^[a-z][a-z'' -]{1,39}$'
+     and (select count(*) from public.vocab_requests r where r.student_id = a.student_id) < 200 then
+    insert into public.vocab_requests (owner_id, student_id, text)
+    values (a.owner_id, a.student_id, v_text)
+    on conflict do nothing;
+    v_requested := true;
+  end if;
+  return jsonb_build_object('found', false, 'requested', v_requested);
+end;
+$$;
+
+-- Сессия ученика (этап 2): слова из личной очереди идут первыми и мимо фильтра колод;
+-- glossary — значения слов-дистракторов для пояснений после ответа.
+create or replace function public.vocab_session(p_token text, p_day_start timestamptz)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  e public.vocab_enrollments;
+  v_day timestamptz;
+  v_student text;
+  v_introduced integer;
+  v_new_left integer;
+  v_total integer;
+  v_started integer;
+  v_known integer;
+  v_today integer;
+  v_streak integer;
+  v_due jsonb;
+  v_fresh jsonb;
+  v_pool jsonb;
+  v_glossary jsonb;
+begin
+  select * into e from public.vocab_enrollments where token = p_token;
+  if not found then
+    return null;
+  end if;
+  -- начало дня не раньше чем сутки назад и не в будущем
+  v_day := least(now(), greatest(coalesce(p_day_start, now() - interval '24 hours'), now() - interval '24 hours'));
+  select split_part(trim(name), ' ', 1) into v_student from public.students where id = e.student_id;
+
+  select count(*) into v_introduced
+    from public.vocab_progress p
+   where p.student_id = e.student_id and p.introduced_at >= v_day;
+  v_new_left := greatest(0, e.new_per_day - v_introduced);
+
+  select coalesce(jsonb_agg(x.j order by x.due_at), '[]'::jsonb) into v_due
+    from (
+      select (to_jsonb(w) - 'owner_id' - 'created_at' - 'updated_at' - 'rank' - 'forms')
+             || jsonb_build_object('stage', p.stage, 'reps', p.reps) as j,
+             p.due_at
+        from public.vocab_progress p
+        join public.vocab_words w on w.id = p.word_id
+       where p.student_id = e.student_id and p.due_at <= now()
+       order by p.due_at
+       limit 80
+    ) x;
+
+  select coalesce(jsonb_agg(x.j order by x.queued_at nulls last, x.rank, x.word), '[]'::jsonb) into v_fresh
+    from (
+      select to_jsonb(w) - 'owner_id' - 'created_at' - 'updated_at' - 'rank' - 'forms' as j,
+             w.rank, w.word, sw.created_at as queued_at
+        from public.vocab_words w
+        left join public.vocab_student_words sw on sw.word_id = w.id and sw.student_id = e.student_id
+       where w.owner_id = e.owner_id
+         and (cardinality(e.decks) = 0 or w.deck = any (e.decks) or sw.word_id is not null)
+         and not exists (
+           select 1 from public.vocab_progress p where p.student_id = e.student_id and p.word_id = w.id
+         )
+       order by sw.created_at nulls last, w.rank, w.word
+       limit v_new_left
+    ) x;
+
+  select coalesce(jsonb_agg(jsonb_build_object('word', x.word, 'pos', x.pos, 'definition', x.definition)), '[]'::jsonb)
+    into v_pool
+    from (
+      select w.word, w.pos, w.definition
+        from public.vocab_words w
+       where w.owner_id = e.owner_id
+       order by random()
+       limit 40
+    ) x;
+
+  select coalesce(jsonb_object_agg(x.f, jsonb_build_object(
+           'word', w.word, 'definition', w.definition, 'translation', w.translation)), '{}'::jsonb)
+    into v_glossary
+    from (
+      select distinct lower(trim(d.value)) as f
+        from jsonb_array_elements(v_due || v_fresh) sw,
+             jsonb_array_elements(sw -> 'contexts') c,
+             jsonb_array_elements_text(c -> 'distractors') d
+    ) x
+    join lateral (
+      select w.word, w.definition, w.translation
+        from public.vocab_words w
+       where w.owner_id = e.owner_id and (lower(w.word) = x.f or x.f = any (w.forms))
+       limit 1
+    ) w on true;
+
+  select count(*) into v_total
+    from public.vocab_words w
+   where w.owner_id = e.owner_id and (cardinality(e.decks) = 0 or w.deck = any (e.decks));
+  select count(*), count(*) filter (where p.stage >= 5) into v_started, v_known
+    from public.vocab_progress p where p.student_id = e.student_id;
+  select count(*) into v_today
+    from public.vocab_reviews r
+   where r.student_id = e.student_id and r.created_at >= v_day and r.exercise <> 'intro';
+
+  -- серия: сколько дней подряд (заканчивая сегодня или вчера) были ответы
+  with days as (
+    select distinct floor(extract(epoch from (r.created_at - v_day)) / 86400)::integer as d
+      from public.vocab_reviews r
+     where r.student_id = e.student_id and r.created_at > v_day - interval '200 days'
+  ), runs as (
+    select d, d + row_number() over (order by d desc) as grp from days
+  )
+  select count(*) into v_streak
+    from runs
+   where grp = (select grp from runs order by d desc limit 1)
+     and (select max(d) from days) >= -1;
+
+  return jsonb_build_object(
+    'student', v_student,
+    'new_per_day', e.new_per_day,
+    'due', v_due,
+    'fresh', v_fresh,
+    'pool', v_pool,
+    'glossary', v_glossary,
+    'stats', jsonb_build_object(
+      'total', v_total, 'started', v_started, 'known', v_known,
+      'reviews_today', v_today, 'streak', v_streak
+    )
+  );
+end;
+$$;
+
+-- Статистика для репетитора (этап 2): плюс очередь ученика и просьбы добавить слова.
+create or replace function public.vocab_stats(p_student_id uuid, p_tz text)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'words_total', (select count(*) from public.vocab_words),
+    'started', (select count(*) from public.vocab_progress p where p.student_id = p_student_id),
+    'known', (select count(*) from public.vocab_progress p where p.student_id = p_student_id and p.stage >= 5),
+    'due', (select count(*) from public.vocab_progress p where p.student_id = p_student_id and p.due_at <= now()),
+    'last_reviewed_at', (select max(r.created_at) from public.vocab_reviews r where r.student_id = p_student_id),
+    'days', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'day', t.d, 'reviews', t.n, 'correct', t.c, 'intro', t.i, 'ms', t.ms) order by t.d), '[]'::jsonb)
+        from (
+          select (r.created_at at time zone p_tz)::date as d,
+                 count(*) filter (where r.exercise <> 'intro') as n,
+                 count(*) filter (where r.exercise <> 'intro' and r.correct) as c,
+                 count(*) filter (where r.exercise = 'intro') as i,
+                 coalesce(sum(r.ms), 0) as ms
+            from public.vocab_reviews r
+           where r.student_id = p_student_id and r.created_at > now() - interval '15 days'
+           group by 1
+        ) t
+    ),
+    'hard', (
+      select coalesce(jsonb_agg(jsonb_build_object('word', t.word, 'lapses', t.lapses, 'stage', t.stage)
+               order by t.lapses desc, t.word), '[]'::jsonb)
+        from (
+          select w.word, p.lapses, p.stage
+            from public.vocab_progress p
+            join public.vocab_words w on w.id = p.word_id
+           where p.student_id = p_student_id and p.lapses >= 2
+           order by p.lapses desc, w.word
+           limit 12
+        ) t
+    ),
+    -- очередь: слова из ошибок и кликов, которые тренер ещё не ввёл
+    'queued', (
+      select coalesce(jsonb_agg(jsonb_build_object('word', t.word, 'source', t.source) order by t.created_at), '[]'::jsonb)
+        from (
+          select w.word, sw.source, sw.created_at
+            from public.vocab_student_words sw
+            join public.vocab_words w on w.id = sw.word_id
+           where sw.student_id = p_student_id
+             and not exists (
+               select 1 from public.vocab_progress p where p.student_id = sw.student_id and p.word_id = sw.word_id
+             )
+           order by sw.created_at
+           limit 60
+        ) t
+    ),
+    'requests', (
+      select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'text', r.text) order by r.created_at), '[]'::jsonb)
+        from public.vocab_requests r
+       where r.student_id = p_student_id
+    )
+  );
+$$;
+
+revoke all on function public.vocab_queue_from_assignment(uuid) from public, anon, authenticated;
+revoke all on function public.vocab_assignment_submitted() from public, anon, authenticated;
+revoke all on function public.vocab_lookup(text, text[], text, boolean) from public;
+grant execute on function public.vocab_lookup(text, text[], text, boolean) to anon, authenticated;
+
+-- Разовый добор: очередь по уже сданным заданиям (повторный запуск ничего не дублирует).
+select public.vocab_queue_from_assignment(a.id) from public.assignments a where a.submitted_at is not null;

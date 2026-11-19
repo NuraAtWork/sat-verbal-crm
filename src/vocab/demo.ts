@@ -126,6 +126,9 @@ export const demoBackend: VocabBackend = {
       due,
       fresh,
       pool: WORDS.map(({ word, pos, definition }) => ({ word, pos, definition })),
+      glossary: Object.fromEntries(
+        WORDS.map(({ word, definition, translation }) => [word, { word, definition, translation }]),
+      ),
       stats: {
         total: WORDS.length,
         started: Object.keys(s.progress).length,
