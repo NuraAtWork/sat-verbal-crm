@@ -11,6 +11,7 @@ import {
   type SubmitResult,
 } from '../sets'
 import { supabase } from '../supabase'
+import { WordLookup } from '../vocab/WordLookup'
 import { TestSolve } from './TestSolve'
 
 // Страница ученика: открывается по ссылке #/solve/<token>, без входа.
@@ -214,7 +215,7 @@ function Solve({ sb, token }: { sb: SupabaseClient; token: string }) {
   if (phase === 'results' && result) {
     return (
       <Shell title={data.title}>
-        <Results data={data} result={result} />
+        <Results token={token} data={data} result={result} />
       </Shell>
     )
   }
@@ -362,7 +363,7 @@ function Player(props: {
 
 // --- Результат и разбор -----------------------------------------------------------
 
-function Results({ data, result }: { data: StudentAssignment; result: SubmitResult }) {
+function Results({ token, data, result }: { token: string; data: StudentAssignment; result: SubmitResult }) {
   const firstWrong = result.results.findIndex((r) => !r.is_correct)
   const [current, setCurrent] = useState(firstWrong === -1 ? 0 : firstWrong)
   const pct = result.total_count ? Math.round((result.correct_count / result.total_count) * 100) : 0
@@ -401,9 +402,11 @@ function Results({ data, result }: { data: StudentAssignment; result: SubmitResu
             Вопрос {current + 1}: {r.is_correct ? 'верно ✓' : r.answer ? `твой ответ ${r.answer}, верно ${r.correct}` : `нет ответа, верно ${r.correct}`}{' '}
             · {formatDuration(r.time_sec)}
           </div>
-          <div className="paper player-paper">
-            <QuestionView q={q} number={current + 1} selected={r.answer} correct={r.correct} />
-          </div>
+          <WordLookup token={token}>
+            <div className="paper player-paper">
+              <QuestionView q={q} number={current + 1} selected={r.answer} correct={r.correct} />
+            </div>
+          </WordLookup>
           <div className="player-nav">
             <button className="sbtn" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>
               ← Назад

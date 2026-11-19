@@ -8,6 +8,7 @@ import {
   plural,
   usableContexts,
   type Exercise,
+  type GlossaryEntry,
   type PoolWord,
   type VocabBackend,
   type VocabSession,
@@ -180,6 +181,7 @@ function Vocab({ backend, demo }: { backend: VocabBackend; demo: boolean }) {
           backend={backend}
           initial={queue}
           pool={pool}
+          glossary={session.glossary ?? {}}
           onFinish={(s) => {
             setSummary(s)
             setPhase('done')
@@ -282,12 +284,16 @@ function Trainer(props: {
   backend: VocabBackend
   initial: Item[]
   pool: PoolWord[]
+  glossary: Record<string, GlossaryEntry>
   onFinish: (s: Summary) => void
 }) {
-  const { backend, initial, pool, onFinish } = props
+  const { backend, initial, pool, glossary, onFinish } = props
   const [queue, setQueue] = useState(initial)
   const [done, setDone] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
+  // «сначала подумай сам»: варианты открыты и что ученик предположил
+  const [revealed, setRevealed] = useState(false)
+  const [guess, setGuess] = useState('')
   const [saveError, setSaveError] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
@@ -334,6 +340,8 @@ function Trainer(props: {
       const rest = queue.slice(1)
       if (again) rest.splice(Math.min(rest.length, gap), 0, again)
       setPicked(null)
+      setRevealed(false)
+      setGuess('')
       setDone((d) => d + 1)
       if (rest.length === 0) finish()
       else setQueue(rest)
@@ -352,7 +360,7 @@ function Trainer(props: {
 
   const onPick = useCallback(
     (i: number) => {
-      if (!item || !exercise || picked !== null) return
+      if (!item || !exercise || picked !== null || (exercise.predict && !revealed)) return
       const correct = i === exercise.answer
       const ms = performance.now() - shownAt.current
       setPicked(i)
@@ -365,7 +373,7 @@ function Trainer(props: {
       }
       if (!correct) s.mistakes.add(item.word.word)
     },
-    [item, exercise, picked, backend, send],
+    [item, exercise, picked, revealed, backend, send],
   )
 
   const onNext = useCallback(() => {
@@ -388,6 +396,13 @@ function Trainer(props: {
           onIntroDone()
         }
       } else if (picked === null) {
+        if (exercise?.predict && !revealed) {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            setRevealed(true)
+          }
+          return
+        }
         const n = Number(e.key)
         if (exercise && n >= 1 && n <= exercise.options.length) onPick(n - 1)
       } else if (next) {
@@ -397,7 +412,7 @@ function Trainer(props: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [item, exercise, picked, finishing, onIntroDone, onPick, onNext])
+  }, [item, exercise, picked, revealed, finishing, onIntroDone, onPick, onNext])
 
   if (finishing || !item) {
     return <p className="solve-muted">Сохраняю…</p>
@@ -426,7 +441,19 @@ function Trainer(props: {
         <IntroCard key={item.key} word={item.word} onDone={onIntroDone} />
       ) : (
         exercise && (
-          <ExerciseCard key={item.key} word={item.word} exercise={exercise} picked={picked} onPick={onPick} onNext={onNext} />
+          <ExerciseCard
+            key={item.key}
+            word={item.word}
+            exercise={exercise}
+            picked={picked}
+            revealed={revealed}
+            guess={guess}
+            glossary={glossary}
+            onGuess={setGuess}
+            onReveal={() => setRevealed(true)}
+            onPick={onPick}
+            onNext={onNext}
+          />
         )
       )}
     </div>
@@ -503,10 +530,16 @@ function ExerciseCard(props: {
   word: VocabWord
   exercise: Exercise
   picked: number | null
+  revealed: boolean
+  guess: string
+  glossary: Record<string, GlossaryEntry>
+  onGuess: (value: string) => void
+  onReveal: () => void
   onPick: (i: number) => void
   onNext: () => void
 }) {
-  const { word, exercise, picked, onPick, onNext } = props
+  const { word, exercise, picked, revealed, guess, glossary, onGuess, onReveal, onPick, onNext } = props
+  const predicting = Boolean(exercise.predict) && !revealed
   const answered = picked !== null
   const correct = picked === exercise.answer
 
@@ -526,17 +559,47 @@ function ExerciseCard(props: {
         </p>
       )}
 
-      <div className="vt-options">
-        {exercise.options.map((option, i) => {
-          const state = !answered ? '' : i === exercise.answer ? 'vt-opt-ok' : i === picked ? 'vt-opt-bad' : 'vt-opt-dim'
-          return (
-            <button key={i} className={`vt-opt ${state}`} disabled={answered} onClick={() => onPick(i)}>
-              <span className="vt-opt-n">{i + 1}</span>
-              <span>{option}</span>
-            </button>
-          )
-        })}
-      </div>
+      {predicting ? (
+        <div className="vt-predict">
+          <p className="vt-predict-hint">
+            Сначала сам: какое слово сюда просится? Хватит и направления — похвала или критика, больше или меньше.
+          </p>
+          <input
+            className="vt-input"
+            value={guess}
+            onChange={(e) => onGuess(e.target.value)}
+            placeholder="Твоя догадка (необязательно)"
+            autoFocus
+          />
+          <button className="sbtn sbtn-primary" onClick={onReveal}>
+            Показать варианты
+          </button>
+        </div>
+      ) : (
+        <>
+          {exercise.predict && guess.trim() && (
+            <p className="solve-muted">
+              Твоя догадка: <strong>{guess.trim()}</strong>
+            </p>
+          )}
+          <div className="vt-options">
+            {exercise.options.map((option, i) => {
+              const state = !answered ? '' : i === exercise.answer ? 'vt-opt-ok' : i === picked ? 'vt-opt-bad' : 'vt-opt-dim'
+              // после ответа — что значат неверные варианты
+              const gloss = answered && exercise.kind === 'cloze' && i !== exercise.answer ? glossary[option.toLowerCase()] : undefined
+              return (
+                <button key={i} className={`vt-opt ${state}`} disabled={answered} onClick={() => onPick(i)}>
+                  <span className="vt-opt-n">{i + 1}</span>
+                  <span className="vt-opt-body">
+                    <span>{option}</span>
+                    {gloss && <span className="vt-opt-gloss">{gloss.definition}</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {answered && (
         <div className={`vt-feedback ${correct ? 'vt-feedback-ok' : 'vt-feedback-bad'}`}>

@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify'
 import { Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Flag } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QuestionView } from '../components/QuestionView'
+import { WordLookup } from '../vocab/WordLookup'
 import { formatDate } from '../dates'
 import {
   estimateRwScore,
@@ -165,7 +166,7 @@ export function TestSolve({ sb, token, data }: { sb: SupabaseClient; token: stri
     [sb, token, modules.length],
   )
 
-  if (result) return <TestResults data={data} modules={modules} result={result} />
+  if (result) return <TestResults token={token} data={data} modules={modules} result={result} />
 
   // модуль открыт и ещё не сдан
   if (starts.length > done && done < modules.length) {
@@ -563,10 +564,12 @@ function NavGrid({ p, current, onGo }: { p: ModuleProgress; current: number; onG
 // --- Результат ---------------------------------------------------------------------------------------
 
 function TestResults({
+  token,
   data,
   modules,
   result,
 }: {
+  token: string
   data: StudentAssignment
   modules: TestModule[]
   result: TestSubmitResult
@@ -647,20 +650,22 @@ function TestResults({
             {r.is_correct ? 'верно ✓' : r.answer ? `твой ответ ${r.answer}, верно ${r.correct}` : `нет ответа, верно ${r.correct}`}{' '}
             · {formatDuration(r.time_sec)}
           </div>
-          <div className="paper player-paper">
-            <QuestionView
-              q={q}
-              number={current - ranges[Math.max(0, moduleOf(current))].start + 1}
-              selected={r.answer}
-              correct={r.correct}
-            />
-            {explanation && (
-              <div className="tp-explain">
-                <div className="tp-explain-h">Объяснение</div>
-                <Html html={explanation} />
-              </div>
-            )}
-          </div>
+          <WordLookup token={token}>
+            <div className="paper player-paper">
+              <QuestionView
+                q={q}
+                number={current - ranges[Math.max(0, moduleOf(current))].start + 1}
+                selected={r.answer}
+                correct={r.correct}
+              />
+              {explanation && (
+                <div className="tp-explain">
+                  <div className="tp-explain-h">Объяснение</div>
+                  <Html html={explanation} />
+                </div>
+              )}
+            </div>
+          </WordLookup>
           <div className="player-nav">
             <button className="sbtn" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>
               ← Назад

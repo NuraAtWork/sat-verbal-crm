@@ -20,11 +20,18 @@ const VOCAB_RE = /^#\/vocab\/([0-9a-f]{64}|demo)\/?$/
 const vocabToken = window.location.hash.match(VOCAB_RE)?.[1]
 
 // Если ссылку ученика вставили во вкладку, где уже открыта CRM (или наоборот), перезагружаемся в нужный режим.
-window.addEventListener('hashchange', () => {
+// Слушаем и popstate: роутер CRM узнаёт о смене адреса именно по нему и иначе успел бы увести на главную
+// раньше перезагрузки — поэтому событие до него не пропускаем.
+const onAddressChange = (e: Event) => {
   const next = window.location.hash.match(SOLVE_RE)?.[1]
   const nextVocab = window.location.hash.match(VOCAB_RE)?.[1]
-  if (next !== solveToken || nextVocab !== vocabToken) window.location.reload()
-})
+  if (next !== solveToken || nextVocab !== vocabToken) {
+    e.stopImmediatePropagation()
+    window.location.reload()
+  }
+}
+window.addEventListener('popstate', onAddressChange)
+window.addEventListener('hashchange', onAddressChange)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

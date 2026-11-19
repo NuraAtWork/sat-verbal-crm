@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { formatDate } from '../dates'
 import { supabase } from '../supabase'
@@ -5,6 +6,7 @@ import type { Student } from '../types'
 import { useStore } from '../useStore'
 import {
   createEnrollment,
+  deleteVocabRequest,
   fetchVocabStats,
   getEnrollment,
   plural,
@@ -17,6 +19,7 @@ import '../vocab/vocab.css'
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const DAYS = 14
+const SOURCE_LABELS = { mistake: 'ошибка в задании', tap: 'нажал в разборе', tutor: 'добавил репетитор' }
 
 const isoDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -123,6 +126,17 @@ export function StudentVocab({ student }: { student: Student }) {
     }
   }
 
+  const queued = stats.queued ?? []
+  const requests = stats.requests ?? []
+  const onDropRequest = async (id: string) => {
+    try {
+      await deleteVocabRequest(sb, id)
+      setStats({ ...stats, requests: requests.filter((r) => r.id !== id) })
+    } catch (e) {
+      setError(errText(e))
+    }
+  }
+
   const byDay = new Map(stats.days.map((d) => [d.day, d]))
   const days = lastDays().map((day) => byDay.get(day) ?? { day, reviews: 0, correct: 0, intro: 0, ms: 0 })
   const max = Math.max(1, ...days.map((d) => d.reviews))
@@ -220,6 +234,39 @@ export function StudentVocab({ student }: { student: Student }) {
             {stats.hard.map((h) => (
               <span key={h.word} className="chip small">
                 {h.word} <b>×{h.lapses}</b>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {queued.length > 0 && (
+        <div>
+          <div className="small muted">В очереди тренера — войдут в ближайшие новые слова</div>
+          <div className="chips">
+            {queued.map((q) => (
+              <span key={q.word} className="chip small" title={SOURCE_LABELS[q.source]}>
+                {q.word}
+                {q.source === 'mistake' && <b> ✗</b>}
+              </span>
+            ))}
+          </div>
+          {queued.some((q) => q.source === 'mistake') && (
+            <div className="small muted">✗ — слово из вопроса Words in Context, где ученик ошибся.</div>
+          )}
+        </div>
+      )}
+
+      {requests.length > 0 && (
+        <div>
+          <div className="small muted">Ученик просил добавить — этих слов нет в словаре</div>
+          <div className="chips">
+            {requests.map((r) => (
+              <span key={r.id} className="chip small">
+                {r.text}
+                <button className="icon-btn" title="Убрать из списка" onClick={() => void onDropRequest(r.id)}>
+                  <X size={12} aria-hidden="true" />
+                </button>
               </span>
             ))}
           </div>

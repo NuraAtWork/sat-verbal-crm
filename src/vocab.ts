@@ -32,6 +32,8 @@ export interface VocabWord {
   deck: string
   /** Порядок введения новых слов (меньше — раньше) */
   rank?: number
+  /** Формы слова в нижнем регистре: по ним слово узнают в вариантах ответа и в тексте */
+  forms?: string[]
 }
 
 /** Слово в сессии ученика вместе с его прогрессом. */
@@ -46,6 +48,12 @@ export interface PoolWord {
   definition: string
 }
 
+export interface GlossaryEntry {
+  word: string
+  definition: string
+  translation: string
+}
+
 export interface VocabSession {
   student: string | null
   new_per_day: number
@@ -55,6 +63,8 @@ export interface VocabSession {
   fresh: VocabWord[]
   /** Случайные слова словаря — материал для неверных вариантов */
   pool: PoolWord[]
+  /** Значения слов-дистракторов по форме в нижнем регистре — для пояснений после ответа */
+  glossary?: Record<string, GlossaryEntry>
   stats: { total: number; started: number; known: number; reviews_today: number; streak: number }
 }
 
@@ -65,6 +75,9 @@ export const MAX_STAGE = 7
 export const KNOWN_STAGE = 5
 /** Через сколько дней показывать слово на ступени (индекс = ступень) */
 export const STAGE_DAYS = [0, 0, 1, 3, 7, 16, 35, 70]
+
+/** С этой ступени в упражнении с пропуском варианты открываются только после «подумай сам» */
+export const PREDICT_STAGE = 3
 
 /** Ступень после ответа — то же правило, что в SQL-функции vocab_review. */
 export function nextStage(stage: number, correct: boolean): number {
@@ -82,6 +95,8 @@ export interface Exercise {
   /** Индекс верного варианта */
   answer: number
   note?: string
+  /** Сначала показать текст без вариантов: ученик сам прикидывает слово */
+  predict?: boolean
 }
 
 /** Детерминированный генератор: один и тот же seed даёт один и тот же порядок вариантов. */
@@ -147,7 +162,7 @@ export function buildExercise(w: VocabWord, stage: number, reps: number, pool: P
     const c = contexts[reps % contexts.length]
     const right = c.answer?.trim() || w.word
     const wrong = c.distractors.filter((d) => norm(d) !== norm(right)).slice(0, 3)
-    return withOptions('cloze', c.text, right, wrong, rand, c.note)
+    return { ...withOptions('cloze', c.text, right, wrong, rand, c.note), predict: stage >= PREDICT_STAGE }
   }
   return withOptions('reverse', w.definition, w.word, pickOthers(w, pool, 'word', rand), rand)
 }
@@ -183,6 +198,7 @@ export function parseVocabWord(value: unknown): VocabWord | null {
     confusables: strs(v.confusables),
     deck: str(v.deck),
     rank: typeof v.rank === 'number' && Number.isFinite(v.rank) ? Math.round(v.rank) : 0,
+    forms: [...new Set([word, ...strs(v.forms)].map((f) => f.toLowerCase()))],
   }
 }
 
@@ -244,11 +260,19 @@ export interface VocabStats {
   /** Дни с активностью за две недели (YYYY-MM-DD) */
   days: { day: string; reviews: number; correct: number; intro: number; ms: number }[]
   hard: { word: string; lapses: number; stage: number }[]
+  /** Личная очередь: слова из ошибок и кликов, которые тренер ещё не ввёл */
+  queued?: { word: string; source: 'mistake' | 'tap' | 'tutor' }[]
+  /** Слова, которых нет в словаре: ученик попросил добавить */
+  requests?: { id: string; text: string }[]
 }
 
 export async function fetchVocabStats(sb: SupabaseClient, studentId: string): Promise<VocabStats> {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   return check(await sb.rpc('vocab_stats', { p_student_id: studentId, p_tz: tz })) as VocabStats
+}
+
+export async function deleteVocabRequest(sb: SupabaseClient, id: string): Promise<void> {
+  check(await sb.from('vocab_requests').delete().eq('id', id))
 }
 
 /** Постоянная ссылка ученика на тренер. */
@@ -290,6 +314,48 @@ export function cloudBackend(sb: SupabaseClient, token: string): VocabBackend {
       )
     },
   }
+}
+
+// --- Слово по клику в разборе задания ----------------------------------------------
+
+export interface LookupResult {
+  found: boolean
+  word?: string
+  pos?: string
+  definition?: string
+  translation?: string
+  /** Слово уже в личной очереди ученика */
+  queued?: boolean
+  /** Слово уже изучается в тренере */
+  learning?: boolean
+  /** Слова нет в словаре, просьба добавить записана */
+  requested?: boolean
+}
+
+/** Слово и его возможные начальные формы: corroborated → corroborate, studies → study. */
+export function wordCandidates(raw: string): string[] {
+  const t = raw.trim().toLowerCase().replace(/[’']s$/, '')
+  const out = [t]
+  const add = (suffix: string, ...endings: string[]) => {
+    if (t.length > suffix.length + 2 && t.endsWith(suffix)) for (const e of endings) out.push(t.slice(0, -suffix.length) + e)
+  }
+  add('ies', 'y')
+  add('ied', 'y')
+  add('es', '', 'e')
+  add('s', '')
+  add('ed', '', 'e')
+  add('d', '')
+  add('ing', '', 'e')
+  add('ly', '')
+  return [...new Set(out)]
+}
+
+/** Ищет слово в словаре по токену сданного задания; add — поставить в очередь или попросить добавить. */
+export async function lookupWord(sb: SupabaseClient, assignmentToken: string, text: string, add: boolean): Promise<LookupResult> {
+  const data = check(
+    await sb.rpc('vocab_lookup', { p_token: assignmentToken, p_candidates: wordCandidates(text), p_text: text, p_add: add }),
+  )
+  return data as LookupResult
 }
 
 /** 1 слово, 2 слова, 5 слов */

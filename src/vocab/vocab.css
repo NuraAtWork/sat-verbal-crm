@@ -215,6 +215,57 @@
   opacity: 0.55;
 }
 
+.vt-opt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vt-opt-gloss {
+  font-size: 13px;
+  color: #6e7180;
+}
+
+.vt-opt-dim {
+  opacity: 0.75;
+}
+
+.vt-predict {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px dashed #c9c9ee;
+  border-radius: 10px;
+  background: #f8f8fe;
+}
+
+.vt-predict-hint {
+  margin: 0;
+  color: #3c3f4a;
+}
+
+.vt-input {
+  font: inherit;
+  font-size: 15px;
+  width: 100%;
+  max-width: 320px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d5d9df;
+  border-radius: 8px;
+  background: #fff;
+  color: #111318;
+}
+
+.vt-input:focus-visible {
+  outline: 3px solid rgba(91, 91, 214, 0.35);
+  outline-offset: 1px;
+  border-color: #5b5bd6;
+}
+
 .vt-feedback {
   align-self: stretch;
   display: flex;
@@ -287,6 +338,73 @@
 
 .vt-hint {
   font-size: 13.5px;
+}
+
+/* ===== Слово по клику в разборе задания (страница ученика) ===== */
+
+.wl-hint {
+  margin: 10px 0 6px;
+  color: #6e7180;
+  font-size: 13px;
+}
+
+.wl-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 24px));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 44px 16px 18px;
+  background: #fff;
+  color: #111318;
+  border: 1px solid #d4d4db;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(17, 19, 24, 0.18);
+}
+
+.wl-sheet p {
+  margin: 0;
+}
+
+.wl-word {
+  font-size: 18px;
+}
+
+.wl-word em,
+.wl-muted {
+  color: #6e7180;
+}
+
+.wl-ok {
+  color: #1a7a4f;
+}
+
+.wl-sheet .sbtn {
+  margin-top: 6px;
+}
+
+.wl-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6e7180;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wl-close:hover {
+  background: #f1f1f4;
 }
 
 /* ===== Блок «Словарь» в карточке ученика (CRM, обе темы) ===== */
