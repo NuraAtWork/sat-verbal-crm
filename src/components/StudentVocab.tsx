@@ -128,7 +128,8 @@ export function StudentVocab({ student }: { student: Student }) {
   const max = Math.max(1, ...days.map((d) => d.reviews))
   const reviews = days.reduce((a, d) => a + d.reviews, 0)
   const correct = days.reduce((a, d) => a + d.correct, 0)
-  const minutes = Math.round(days.reduce((a, d) => a + d.ms, 0) / 60000)
+  const ms = days.reduce((a, d) => a + d.ms, 0)
+  const timeNote = ms < 60000 ? 'меньше минуты' : `около ${Math.round(ms / 60000)} мин`
   const activeDays = days.filter((d) => d.reviews > 0).length
 
   return (
@@ -165,7 +166,7 @@ export function StudentVocab({ student }: { student: Student }) {
         <p className="muted small">Словарь пуст — загрузите слова в «Данные → Добавить из файла».</p>
       )}
 
-      <div className="stats">
+      <div className="stats vocab-stats">
         <div className="stat">
           <span className="stat-value">{stats.known}</span>
           <span className="stat-label">Выучено</span>
@@ -206,7 +207,7 @@ export function StudentVocab({ student }: { student: Student }) {
 
       <p className="small muted">
         {reviews > 0
-          ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%, около ${minutes} мин.`
+          ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%, ${timeNote}.`
           : stats.last_reviewed_at
             ? `За ${DAYS} дней не занимался. Последняя тренировка: ${new Date(stats.last_reviewed_at).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}.`
             : 'Ученик ещё не открывал тренер.'}

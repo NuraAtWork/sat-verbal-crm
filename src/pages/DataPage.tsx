@@ -99,7 +99,9 @@ export function DataPage() {
         setMessage(`Восстановлено из копии: ${counts}.${setsNote}`)
       } else {
         dispatch({ type: 'db/merge', db: parsed })
-        setMessage(`Добавлено или обновлено: ${counts}. Остальные данные не тронуты.${setsNote}`)
+        // файл только с сетами или словами: без «пустой файл» про остальные данные
+        const onlyExtras = counts === 'пустой файл' && setsNote
+        setMessage(onlyExtras ? `${setsNote.trim()} Остальные данные не тронуты.` : `Добавлено или обновлено: ${counts}. Остальные данные не тронуты.${setsNote}`)
       }
     } catch {
       setMessage('Не удалось прочитать файл.')
