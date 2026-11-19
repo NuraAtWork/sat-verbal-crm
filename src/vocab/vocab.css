@@ -407,6 +407,22 @@
   background: #f1f1f4;
 }
 
+/* ===== Страница «Словарь» (CRM, обе темы) ===== */
+
+.vw-context {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.vw-context .field-row .input {
+  flex: 1;
+}
+
 /* ===== Блок «Словарь» в карточке ученика (CRM, обе темы) ===== */
 
 .stats.vocab-stats {

@@ -1,6 +1,7 @@
 import { GraduationCap, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/StatusBadge'
+import { VocabOverview } from '../components/VocabOverview'
 import { addDays, describeExam, formatDate, today } from '../dates'
 import { demoDb } from '../demo'
 import { skillName } from '../sat'
@@ -126,6 +127,8 @@ export function Dashboard() {
           )}
         </section>
       </div>
+
+      <VocabOverview />
 
       {leads.length > 0 && (
         <section className="card">

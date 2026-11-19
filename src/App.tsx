@@ -1,4 +1,4 @@
-import { Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
+import { BookOpen, Database, FolderOpen, LayoutDashboard, Users } from 'lucide-react'
 import { HashRouter, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { Brand } from './components/Brand'
 import { CAN_EDIT_LIBRARY } from './permissions'
@@ -13,11 +13,13 @@ import { SetViewer } from './pages/SetViewer'
 import { StudentDetail } from './pages/StudentDetail'
 import { StudentForm } from './pages/StudentForm'
 import { Students } from './pages/Students'
+import { VocabWords } from './pages/VocabWords'
 
 const NAV = [
   { to: '/', label: 'Обзор', icon: LayoutDashboard, end: true },
   { to: '/students', label: 'Ученики', icon: Users },
   { to: '/materials', label: 'Материалы', icon: FolderOpen },
+  { to: '/words', label: 'Словарь', icon: BookOpen },
   { to: '/data', label: 'Данные', icon: Database },
 ]
 
@@ -60,6 +62,7 @@ export default function App() {
             <Route path="/sets/new" element={CAN_EDIT_LIBRARY ? <SetEditor /> : <Navigate to="/materials" replace />} />
             <Route path="/sets/:id" element={<SetViewer />} />
             <Route path="/sets/:id/edit" element={CAN_EDIT_LIBRARY ? <SetEditor /> : <ToSetViewer />} />
+            <Route path="/words" element={<VocabWords />} />
             <Route path="/data" element={<DataPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
