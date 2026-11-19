@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import {
   BLANK,
   buildExercise,
+  checkTyped,
   cloudBackend,
   nextStage,
   plural,
@@ -10,6 +11,7 @@ import {
   type Exercise,
   type GlossaryEntry,
   type PoolWord,
+  type TypedVerdict,
   type VocabBackend,
   type VocabSession,
   type VocabWord,
@@ -294,6 +296,8 @@ function Trainer(props: {
   // «сначала подумай сам»: варианты открыты и что ученик предположил
   const [revealed, setRevealed] = useState(false)
   const [guess, setGuess] = useState('')
+  // упражнение «впиши слово»: что ввёл ученик и как это оценено
+  const [typed, setTyped] = useState<{ text: string; verdict: TypedVerdict } | null>(null)
   const [saveError, setSaveError] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
@@ -342,6 +346,7 @@ function Trainer(props: {
       setPicked(null)
       setRevealed(false)
       setGuess('')
+      setTyped(null)
       setDone((d) => d + 1)
       if (rest.length === 0) finish()
       else setQueue(rest)
@@ -358,33 +363,47 @@ function Trainer(props: {
     advance({ ...item, key: nextKey.current++, intro: false, stage: 1, seed: seed() }, 2)
   }, [item, backend, send, advance])
 
-  const onPick = useCallback(
-    (i: number) => {
-      if (!item || !exercise || picked !== null || (exercise.predict && !revealed)) return
-      const correct = i === exercise.answer
+  /** Отправляет ответ на сервер и учитывает его в итогах сессии. */
+  const record = useCallback(
+    (it: Item, ex: Exercise, correct: boolean) => {
       const ms = performance.now() - shownAt.current
-      setPicked(i)
-      send(() => backend.review(item.word.id, exercise.kind, correct, ms))
+      send(() => backend.review(it.word.id, ex.kind, correct, ms))
       const s = stats.current
-      s.words.add(item.word.word)
-      if (item.first) {
+      s.words.add(it.word.word)
+      if (it.first) {
         s.firstTotal += 1
         if (correct) s.firstCorrect += 1
       }
-      if (!correct) s.mistakes.add(item.word.word)
+      if (!correct) s.mistakes.add(it.word.word)
     },
-    [item, exercise, picked, revealed, backend, send],
+    [backend, send],
   )
 
+  const onPick = useCallback(
+    (i: number) => {
+      if (!item || !exercise || picked !== null || (exercise.predict && !revealed)) return
+      setPicked(i)
+      record(item, exercise, i === exercise.answer)
+    },
+    [item, exercise, picked, revealed, record],
+  )
+
+  const onSubmitTyped = useCallback(() => {
+    if (!item || !exercise || exercise.kind !== 'type' || typed !== null || !guess.trim()) return
+    const verdict = checkTyped(guess, exercise.expected ?? item.word.word, item.word.word)
+    setTyped({ text: guess.trim(), verdict })
+    record(item, exercise, verdict !== 'wrong')
+  }, [item, exercise, typed, guess, record])
+
   const onNext = useCallback(() => {
-    if (!item || !exercise || picked === null) return
-    const correct = picked === exercise.answer
+    if (!item || !exercise || (picked === null && typed === null)) return
+    const correct = typed ? typed.verdict !== 'wrong' : picked === exercise.answer
     // ошибка — слово вернётся в этой же сессии, уже на ступень ниже
     const again: Item | null = correct
       ? null
       : { ...item, key: nextKey.current++, stage: nextStage(item.stage, false), reps: item.reps + 1, seed: seed(), first: false }
     advance(again, 3)
-  }, [item, exercise, picked, advance])
+  }, [item, exercise, picked, typed, advance])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -395,7 +414,14 @@ function Trainer(props: {
           e.preventDefault()
           onIntroDone()
         }
-      } else if (picked === null) {
+      } else if (picked === null && typed === null) {
+        if (exercise?.kind === 'type') {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            onSubmitTyped()
+          }
+          return
+        }
         if (exercise?.predict && !revealed) {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -412,7 +438,7 @@ function Trainer(props: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [item, exercise, picked, revealed, finishing, onIntroDone, onPick, onNext])
+  }, [item, exercise, picked, typed, revealed, finishing, onIntroDone, onPick, onSubmitTyped, onNext])
 
   if (finishing || !item) {
     return <p className="solve-muted">Сохраняю…</p>
@@ -448,7 +474,9 @@ function Trainer(props: {
             picked={picked}
             revealed={revealed}
             guess={guess}
+            typed={typed}
             glossary={glossary}
+            onSubmitTyped={onSubmitTyped}
             onGuess={setGuess}
             onReveal={() => setRevealed(true)}
             onPick={onPick}
@@ -524,6 +552,7 @@ const QUESTION: Record<Exercise['kind'], string> = {
   meaning: 'Что значит это слово?',
   cloze: 'Какое слово подходит по смыслу и точнее всего?',
   reverse: 'Какое слово соответствует определению?',
+  type: 'Впиши слово',
 }
 
 function ExerciseCard(props: {
@@ -532,16 +561,19 @@ function ExerciseCard(props: {
   picked: number | null
   revealed: boolean
   guess: string
+  typed: { text: string; verdict: TypedVerdict } | null
   glossary: Record<string, GlossaryEntry>
+  onSubmitTyped: () => void
   onGuess: (value: string) => void
   onReveal: () => void
   onPick: (i: number) => void
   onNext: () => void
 }) {
-  const { word, exercise, picked, revealed, guess, glossary, onGuess, onReveal, onPick, onNext } = props
+  const { word, exercise, picked, revealed, guess, typed, glossary, onSubmitTyped, onGuess, onReveal, onPick, onNext } = props
   const predicting = Boolean(exercise.predict) && !revealed
-  const answered = picked !== null
-  const correct = picked === exercise.answer
+  const answered = picked !== null || typed !== null
+  const correct = typed ? typed.verdict !== 'wrong' : picked === exercise.answer
+  const shownAnswer = exercise.kind === 'type' ? exercise.expected : exercise.options[exercise.answer]
 
   return (
     <div className="solve-card vt-card">
@@ -553,13 +585,48 @@ function ExerciseCard(props: {
         </div>
       )}
       {exercise.kind === 'reverse' && <p className="vt-def">{exercise.prompt}</p>}
-      {exercise.kind === 'cloze' && (
+      {(exercise.kind === 'cloze' || (exercise.kind === 'type' && exercise.context)) && (
         <p className="vt-text">
-          <Cloze text={exercise.prompt} fill={answered ? exercise.options[exercise.answer] : undefined} />
+          <Cloze text={exercise.prompt} fill={answered ? shownAnswer : undefined} />
         </p>
       )}
+      {exercise.kind === 'type' && !exercise.context && (
+        <>
+          <p className="vt-def">{exercise.prompt}</p>
+          {word.translation && <p className="vt-tr">{word.translation}</p>}
+        </>
+      )}
 
-      {predicting ? (
+      {exercise.kind === 'type' ? (
+        typed ? (
+          <p className="solve-muted">
+            Твой ответ: <strong>{typed.text}</strong>
+            {typed.verdict === 'close' && (
+              <>
+                {' '}
+                — почти, пишется <strong>{exercise.expected}</strong>
+              </>
+            )}
+          </p>
+        ) : (
+          <div className="vt-predict">
+            <p className="vt-predict-hint">Вариантов нет — впиши слово сам. Подсказка: {exercise.hint}</p>
+            <input
+              className="vt-input"
+              value={guess}
+              onChange={(e) => onGuess(e.target.value)}
+              placeholder="Слово"
+              autoFocus
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <button className="sbtn sbtn-primary" onClick={onSubmitTyped} disabled={!guess.trim()}>
+              Проверить
+            </button>
+          </div>
+        )
+      ) : predicting ? (
         <div className="vt-predict">
           <p className="vt-predict-hint">
             Сначала сам: какое слово сюда просится? Хватит и направления — похвала или критика, больше или меньше.

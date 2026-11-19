@@ -755,7 +755,7 @@ create table if not exists public.vocab_reviews (
   owner_id      uuid not null references auth.users (id) on delete cascade,
   student_id    uuid not null references public.students (id) on delete cascade,
   word_id       uuid not null references public.vocab_words (id) on delete cascade,
-  -- intro — показ карточки нового слова; meaning / cloze / reverse — упражнения
+  -- intro — показ карточки нового слова; meaning / cloze / reverse / type — упражнения
   exercise      text not null,
   correct       boolean not null,
   -- время на ответ, мс
@@ -939,7 +939,7 @@ begin
   if not exists (select 1 from public.vocab_words w where w.id = p_word_id and w.owner_id = e.owner_id) then
     raise exception 'word not found';
   end if;
-  v_exercise := case when p_exercise in ('intro', 'meaning', 'cloze', 'reverse') then p_exercise else 'other' end;
+  v_exercise := case when p_exercise in ('intro', 'meaning', 'cloze', 'reverse', 'type') then p_exercise else 'other' end;
 
   insert into public.vocab_progress (student_id, word_id, owner_id)
   values (e.student_id, p_word_id, e.owner_id)
@@ -1450,3 +1450,46 @@ delete from public.vocab_student_words sw
      select 1 from public.vocab_progress p where p.student_id = sw.student_id and p.word_id = sw.word_id
    );
 select public.vocab_queue_from_assignment(a.id) from public.assignments a where a.submitted_at is not null;
+
+-- ============================================================================
+-- Тренер словаря, этап 3: упражнение «впиши слово» и сводка по ученикам
+-- ----------------------------------------------------------------------------
+-- Упражнение type (с 5-й ступени ученик вписывает слово сам) учтено в vocab_review в блоке выше.
+-- Редактор словаря в CRM работает с таблицей vocab_words напрямую (RLS «только свои строки»).
+-- ============================================================================
+
+-- Сводка тренера по всем ученикам репетитора для страницы «Обзор» (работает под RLS).
+create or replace function public.vocab_overview(p_tz text)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'student_id', e.student_id,
+    'last_reviewed_at', (select max(r.created_at) from public.vocab_reviews r where r.student_id = e.student_id),
+    -- дней с тренировкой за последние 7 (включая сегодня)
+    'active_days', (
+      select count(distinct (r.created_at at time zone p_tz)::date)
+        from public.vocab_reviews r
+       where r.student_id = e.student_id
+         and (r.created_at at time zone p_tz)::date > (now() at time zone p_tz)::date - 7
+    ),
+    'started', (select count(*) from public.vocab_progress p where p.student_id = e.student_id),
+    'known', (select count(*) from public.vocab_progress p where p.student_id = e.student_id and p.stage >= 5),
+    'due', (select count(*) from public.vocab_progress p where p.student_id = e.student_id and p.due_at <= now()),
+    'queued', (
+      select count(*)
+        from public.vocab_student_words sw
+       where sw.student_id = e.student_id
+         and not exists (
+           select 1 from public.vocab_progress p where p.student_id = sw.student_id and p.word_id = sw.word_id
+         )
+    )
+  )), '[]'::jsonb)
+  from public.vocab_enrollments e;
+$$;
+
+revoke all on function public.vocab_overview(text) from public, anon;
+grant execute on function public.vocab_overview(text) to authenticated;

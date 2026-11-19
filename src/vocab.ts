@@ -68,13 +68,16 @@ export interface VocabSession {
   stats: { total: number; started: number; known: number; reviews_today: number; streak: number }
 }
 
-export type ExerciseKind = 'meaning' | 'cloze' | 'reverse'
+export type ExerciseKind = 'meaning' | 'cloze' | 'reverse' | 'type'
 
 export const MAX_STAGE = 7
 /** Со скольки ступеней слово считается выученным */
 export const KNOWN_STAGE = 5
 /** Через сколько дней показывать слово на ступени (индекс = ступень) */
 export const STAGE_DAYS = [0, 0, 1, 3, 7, 16, 35, 70]
+
+/** С этой ступени ученик вписывает слово сам, без вариантов */
+export const TYPE_STAGE = 5
 
 /** С этой ступени в упражнении с пропуском варианты открываются только после «подумай сам» */
 export const PREDICT_STAGE = 3
@@ -97,6 +100,47 @@ export interface Exercise {
   note?: string
   /** Сначала показать текст без вариантов: ученик сам прикидывает слово */
   predict?: boolean
+  /** Для kind = 'type': что нужно вписать и подсказка (первая буква и длина) */
+  expected?: string
+  hint?: string
+  /** Для kind = 'type': prompt — текст с пропуском (иначе — определение слова) */
+  context?: boolean
+}
+
+/** Подсказка для ввода: «c… (11 букв)» или «c… (2 слова)». */
+function typeHint(expected: string): string {
+  const words = expected.trim().split(/\s+/)
+  const size =
+    words.length > 1
+      ? `${words.length} ${plural(words.length, 'слово', 'слова', 'слов')}`
+      : `${expected.length} ${plural(expected.length, 'буква', 'буквы', 'букв')}`
+  return `${expected[0]}… (${size})`
+}
+
+const normTyped = (s: string) => norm(s).replace(/\s+/g, ' ').replace(/^(a|an|the|to) /, '')
+
+/** Расстояние Левенштейна не больше 1 (одна опечатка). */
+function oneTypo(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
+  let x = a.length - 1
+  let y = b.length - 1
+  while (x >= i && y >= i && a[x] === b[y]) {
+    x--
+    y--
+  }
+  return x - i + 1 <= 1 && y - i + 1 <= 1
+}
+
+export type TypedVerdict = 'exact' | 'close' | 'wrong'
+
+/** Проверка вписанного слова: подходит форма из контекста или начальная; одна опечатка — «почти». */
+export function checkTyped(input: string, expected: string, word: string): TypedVerdict {
+  const typed = normTyped(input)
+  const targets = [normTyped(expected), normTyped(word)]
+  if (targets.includes(typed)) return 'exact'
+  return targets.some((t) => t.length >= 5 && oneTypo(typed, t)) ? 'close' : 'wrong'
 }
 
 /** Детерминированный генератор: один и тот же seed даёт один и тот же порядок вариантов. */
@@ -151,6 +195,7 @@ function withOptions(kind: ExerciseKind, prompt: string, right: string, wrong: s
 /**
  * Упражнение для слова: на первой ступени — «слово → значение», дальше — пропуск в контексте
  * (контексты чередуются по числу повторений); если контекстов нет — «значение → слово».
+ * С TYPE_STAGE вариантов нет: слово нужно вписать.
  */
 export function buildExercise(w: VocabWord, stage: number, reps: number, pool: PoolWord[], seed: number): Exercise {
   const rand = rng(seed)
@@ -158,6 +203,20 @@ export function buildExercise(w: VocabWord, stage: number, reps: number, pool: P
     return withOptions('meaning', w.word, w.definition, pickOthers(w, pool, 'definition', rand), rand)
   }
   const contexts = usableContexts(w)
+  if (stage >= TYPE_STAGE) {
+    const c = contexts.length ? contexts[reps % contexts.length] : undefined
+    const expected = c?.answer?.trim() || w.word
+    return {
+      kind: 'type',
+      prompt: c ? c.text : w.definition,
+      options: [],
+      answer: -1,
+      note: c?.note,
+      expected,
+      hint: typeHint(expected),
+      context: Boolean(c),
+    }
+  }
   if (contexts.length) {
     const c = contexts[reps % contexts.length]
     const right = c.answer?.trim() || w.word
