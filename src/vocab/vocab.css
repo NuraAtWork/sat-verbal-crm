@@ -1,0 +1,326 @@
+/* ===== Тренер словаря: страница ученика (всегда светлая, внутри .solve) ===== */
+
+.vt {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.vt-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vt-progress {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: #e6e6eb;
+  overflow: hidden;
+}
+
+.vt-progress > div {
+  height: 100%;
+  background: #5b5bd6;
+  border-radius: 4px;
+  transition: width 0.25s ease;
+}
+
+.vt-count {
+  color: #6e7180;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vt .solve-card {
+  margin-top: 20px;
+}
+
+.vt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vt-card > * {
+  margin: 0;
+}
+
+.vt-card h1 {
+  margin: 0;
+}
+
+.vt-label {
+  color: #6e7180;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.vt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.vt-word {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: #111318;
+}
+
+.vt-feedback .vt-word {
+  font-size: 18px;
+}
+
+.vt-pos {
+  color: #6e7180;
+  font-style: italic;
+}
+
+.vt-tone {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f1f4;
+  color: #3c3f4a;
+}
+
+.vt-tone-positive {
+  background: #e7f6ee;
+  color: #1a7a4f;
+}
+
+.vt-tone-negative {
+  background: #fdecec;
+  color: #b42f2f;
+}
+
+.vt-def {
+  font-size: 16px;
+  color: #111318;
+}
+
+.vt-tr {
+  color: #6e7180;
+}
+
+.vt-text {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #111318;
+}
+
+.vt-blank {
+  display: inline-block;
+  width: 72px;
+  border-bottom: 2px solid #111318;
+  vertical-align: baseline;
+}
+
+.vt-fill {
+  color: #4646b8;
+  font-weight: 650;
+}
+
+.vt-examples {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: #3c3f4a;
+}
+
+.vt-options {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vt-opt {
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid #d5d9df;
+  border-radius: 10px;
+  background: #fff;
+  color: #111318;
+  cursor: pointer;
+}
+
+.vt-opt:hover:not(:disabled) {
+  border-color: #5b5bd6;
+  background: #f6f6fe;
+}
+
+.vt-opt:focus-visible,
+.vt .sbtn:focus-visible,
+.vt-card .sbtn:focus-visible {
+  outline: 3px solid rgba(91, 91, 214, 0.35);
+  outline-offset: 1px;
+}
+
+.vt-opt:disabled {
+  cursor: default;
+}
+
+.vt-opt-n {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f1f1f4;
+  color: #6e7180;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vt-opt-ok {
+  border-color: #1f8a5b;
+  background: #e7f6ee;
+}
+
+.vt-opt-ok .vt-opt-n {
+  background: #1f8a5b;
+  color: #fff;
+}
+
+.vt-opt-bad {
+  border-color: #d93f3f;
+  background: #fdecec;
+}
+
+.vt-opt-bad .vt-opt-n {
+  background: #d93f3f;
+  color: #fff;
+}
+
+.vt-opt-dim {
+  opacity: 0.55;
+}
+
+.vt-feedback {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border-left: 4px solid;
+}
+
+.vt-feedback > * {
+  margin: 0;
+}
+
+.vt-feedback .sbtn {
+  margin-top: 8px;
+}
+
+.vt-feedback-ok {
+  background: #f1faf5;
+  border-color: #1f8a5b;
+}
+
+.vt-feedback-ok > strong {
+  color: #1a7a4f;
+}
+
+.vt-feedback-bad {
+  background: #fef5f5;
+  border-color: #d93f3f;
+}
+
+.vt-feedback-bad > strong {
+  color: #b42f2f;
+}
+
+.vt-note {
+  color: #3c3f4a;
+}
+
+.vt-tiles {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.vt-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid #e6e6eb;
+  border-radius: 10px;
+  background: #fcfcfd;
+}
+
+.vt-tile-value {
+  font-size: 22px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: #111318;
+}
+
+.vt-tile-label {
+  font-size: 12.5px;
+  color: #6e7180;
+}
+
+.vt-hint {
+  font-size: 13.5px;
+}
+
+/* ===== Блок «Словарь» в карточке ученика (CRM, обе темы) ===== */
+
+.vocab-days {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 64px;
+  margin: 12px 0 4px;
+}
+
+.vocab-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.vocab-day-bar {
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  min-height: 2px;
+}
+
+.vocab-day-empty .vocab-day-bar {
+  background: var(--border-strong);
+}
+
+.vocab-days-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}

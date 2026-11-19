@@ -5,6 +5,7 @@ import { StudentAssignments } from '../components/Assignments'
 import { NextSets, SkillAnalyticsCard } from '../components/SkillAnalytics'
 import { ScoreChart } from '../components/ScoreChart'
 import { StatusBadge } from '../components/StatusBadge'
+import { StudentVocab } from '../components/StudentVocab'
 import { describeExam, formatDate, today } from '../dates'
 import { DOMAINS, SKILLS, parseScore, skillName } from '../sat'
 import { lessonsOf, newId, scoresOf } from '../db'
@@ -104,6 +105,11 @@ export function StudentDetail() {
       <section className="card">
         <h2>Задания</h2>
         <StudentAssignments key={reloadKey} student={student} />
+      </section>
+
+      <section className="card">
+        <h2>Словарь</h2>
+        <StudentVocab key={student.id} student={student} />
       </section>
 
       <section className="card">
