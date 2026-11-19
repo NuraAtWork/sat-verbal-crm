@@ -5,6 +5,7 @@ import { emptyDb, normalizeDb } from '../db'
 import { isQuestionSet, uploadQuestionSets } from '../sets'
 import { supabase } from '../supabase'
 import { useStore } from '../useStore'
+import { parseVocabWord, uploadVocabWords, type VocabWord } from '../vocab'
 
 export function DataPage() {
   const { db, dispatch, sync } = useStore()
@@ -59,6 +60,27 @@ export function DataPage() {
           setsNote = ` Сетов вопросов загружено: ${sets.length}.`
         } else {
           setsNote = ` Сеты вопросов (${sets.length}) загрузятся в облачном режиме — пока добавлены ссылки на Drive.`
+        }
+      }
+      // Слова для тренера словаря (vocabWords) — тоже только в облаке; без определения пропускаются.
+      const rawWords = (raw as { vocabWords?: unknown }).vocabWords
+      if (Array.isArray(rawWords) && rawWords.length) {
+        const words = rawWords.map(parseVocabWord).filter((w): w is VocabWord => w !== null)
+        const skipped = rawWords.length - words.length
+        const skippedNote = skipped ? ` (пропущено без определения: ${skipped})` : ''
+        if (cloud && supabase) {
+          setBusy(true)
+          try {
+            await uploadVocabWords(supabase, words, (done, total) => setMessage(`Загружаю слова: ${done}/${total}…`))
+          } catch (e) {
+            setMessage(`Не удалось загрузить слова: ${e instanceof Error ? e.message : String(e)}. Попробуйте ещё раз.`)
+            return
+          } finally {
+            setBusy(false)
+          }
+          setsNote += ` Слов для тренера загружено: ${words.length}${skippedNote}.`
+        } else {
+          setsNote += ` Слова для тренера (${words.length}) загрузятся только в облачном режиме.`
         }
       }
       const counts =
