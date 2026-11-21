@@ -2135,3 +2135,347 @@ $$;
 
 revoke all on function public.student_home(text, timestamptz) from public;
 grant execute on function public.student_home(text, timestamptz) to anon, authenticated;
+
+-- ============================================================================
+-- Telegram-бот: привязка ученика по коду, напоминания про тренеры, вход в кабинет (Mini App)
+-- ----------------------------------------------------------------------------
+-- telegram_links — ученик и его Telegram. У непривязанного ученика есть одноразовый код (6 символов
+--   без похожих 0/O, 1/I/L): ученик отправляет его боту (или открывает t.me/<бот>?start=<код>), бот
+--   запоминает его Telegram, и код сгорает. «Новый код» в карточке снимает привязку.
+-- telegram_attempts — попытки ввести код (не больше 5 неверных в час на один Telegram-аккаунт).
+-- Бот — Edge Function `telegram` (supabase/functions/telegram): вебхук Telegram и ежечасная задача
+--   напоминаний (pg_cron → pg_net). Токен бота — только секрет TELEGRAM_BOT_TOKEN в Supabase.
+-- Функции telegram_link / telegram_context / telegram_set_reminders / telegram_reminders_claim
+--   вызывает только бот (service_role). Ученик из кабинета — telegram_portal (по токену кабинета).
+-- Напоминание: раз в день в remind_hour по часовому поясу ученика (tz приходит из браузера при
+--   открытии кабинета), только если есть что повторить и сегодня он ещё не занимался тренерами.
+-- ============================================================================
+
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Код из 6 символов: буквы и цифры без похожих (0/O, 1/I/L).
+create or replace function public.telegram_new_code()
+returns text
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_abc constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  v_code text;
+  v_bytes bytea;
+begin
+  loop
+    v_bytes := extensions.gen_random_bytes(6);
+    v_code := '';
+    for i in 0..5 loop
+      v_code := v_code || substr(v_abc, 1 + get_byte(v_bytes, i) % length(v_abc), 1);
+    end loop;
+    exit when not exists (select 1 from public.telegram_links l where l.code = v_code);
+  end loop;
+  return v_code;
+end;
+$$;
+
+create table if not exists public.telegram_links (
+  student_id        uuid primary key references public.students (id) on delete cascade,
+  owner_id          uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  -- одноразовый код привязки; после привязки — null
+  code              text unique default public.telegram_new_code(),
+  tg_user_id        bigint unique,
+  tg_chat_id        bigint,
+  tg_username       text not null default '',
+  tg_name           text not null default '',
+  linked_at         timestamptz,
+  reminders         boolean not null default true,
+  remind_hour       smallint not null default 19 check (remind_hour between 0 and 23),
+  -- часовой пояс ученика (из браузера при открытии кабинета)
+  tz                text not null default 'Asia/Almaty',
+  last_reminded_on  date,
+  created_at        timestamptz not null default now()
+);
+
+create index if not exists telegram_links_owner_idx on public.telegram_links (owner_id);
+
+create table if not exists public.telegram_attempts (
+  id          bigint generated always as identity primary key,
+  tg_user_id  bigint not null,
+  ok          boolean not null,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists telegram_attempts_user_idx on public.telegram_attempts (tg_user_id, created_at);
+
+alter table public.telegram_links    enable row level security;
+alter table public.telegram_attempts enable row level security;
+
+revoke all on public.telegram_links, public.telegram_attempts from anon, authenticated;
+grant select, insert, update, delete on public.telegram_links to authenticated;
+
+drop policy if exists "telegram_links: own rows" on public.telegram_links;
+create policy "telegram_links: own rows" on public.telegram_links
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and exists (select 1 from public.students s where s.id = student_id and s.owner_id = (select auth.uid()))
+  );
+
+-- Репетитор: снять привязку и выдать новый код (под RLS — только свои ученики).
+create or replace function public.telegram_reset(p_student_id uuid)
+returns text
+language sql
+volatile
+security invoker
+set search_path = ''
+as $$
+  update public.telegram_links
+     set code = public.telegram_new_code(), tg_user_id = null, tg_chat_id = null,
+         tg_username = '', tg_name = '', linked_at = null, last_reminded_on = null
+   where student_id = p_student_id
+  returning code;
+$$;
+
+-- Что у ученика сегодня в тренерах: сколько повторить и сколько новых, занимался ли уже.
+create or replace function public.telegram_student_today(p_student_id uuid, p_tz text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_mid timestamptz;
+  v_exam date;
+  v_quiet boolean;
+  v_owner uuid;
+  g public.grammar_enrollments;
+  e public.vocab_enrollments;
+  v_grammar jsonb;
+  v_vocab jsonb;
+  v_practiced boolean;
+begin
+  v_mid := (date_trunc('day', now() at time zone p_tz)) at time zone p_tz;
+  select s.exam_date, s.owner_id into v_exam, v_owner from public.students s where s.id = p_student_id;
+  -- перед экзаменом новых не вводят (как в vocab_session / grammar_session)
+  v_quiet := v_exam is not null and (now() at time zone p_tz)::date between v_exam - 2 and v_exam;
+
+  select * into g from public.grammar_enrollments where student_id = p_student_id;
+  if found then
+    v_grammar := jsonb_build_object(
+      'token', g.token,
+      'due', (select count(*) from public.grammar_progress p where p.student_id = p_student_id and p.due_at <= now()),
+      'new', case when v_quiet then 0 else greatest(0, least(
+               g.new_per_day - (select count(*) from public.grammar_progress p
+                                 where p.student_id = p_student_id and p.introduced_at >= v_mid),
+               (select count(*) from public.grammar_rules r
+                 where r.owner_id = v_owner and (cardinality(g.skills) = 0 or r.skill = any (g.skills))
+                   and not exists (select 1 from public.grammar_progress p where p.student_id = p_student_id and p.rule_id = r.id))
+             )) end
+    );
+  end if;
+
+  select * into e from public.vocab_enrollments where student_id = p_student_id;
+  if found then
+    v_vocab := jsonb_build_object(
+      'token', e.token,
+      'due', (select count(*) from public.vocab_progress p where p.student_id = p_student_id and p.due_at <= now()),
+      'new', case when v_quiet then 0 else greatest(0, least(
+               e.new_per_day - (select count(*) from public.vocab_progress p
+                                 where p.student_id = p_student_id and p.introduced_at >= v_mid),
+               (select count(*) from public.vocab_words w
+                 where w.owner_id = v_owner
+                   and not exists (select 1 from public.vocab_progress p where p.student_id = p_student_id and p.word_id = w.id))
+             )) end
+    );
+  end if;
+
+  v_practiced := exists (select 1 from public.grammar_reviews r
+                          where r.student_id = p_student_id and r.created_at >= v_mid and r.exercise <> 'intro')
+              or exists (select 1 from public.vocab_reviews r
+                          where r.student_id = p_student_id and r.created_at >= v_mid and r.exercise <> 'intro');
+
+  return jsonb_build_object('grammar', v_grammar, 'vocab', v_vocab, 'practiced', v_practiced);
+end;
+$$;
+
+-- Всё, что бот знает об ученике по его Telegram: имя, ссылки, тренеры на сегодня. null — не привязан.
+create or replace function public.telegram_context(p_tg_user_id bigint)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  l public.telegram_links;
+  v_name text;
+  v_portal text;
+begin
+  select * into l from public.telegram_links where tg_user_id = p_tg_user_id;
+  if not found then
+    return null;
+  end if;
+  select split_part(trim(s.name), ' ', 1) into v_name from public.students s where s.id = l.student_id;
+  select p.token into v_portal from public.student_portals p where p.student_id = l.student_id;
+  return jsonb_build_object(
+    'student', v_name, 'chat_id', l.tg_chat_id, 'portal', v_portal,
+    'reminders', l.reminders, 'remind_hour', l.remind_hour, 'tz', l.tz
+  ) || public.telegram_student_today(l.student_id, l.tz);
+end;
+$$;
+
+-- Привязка по коду. Не больше 5 неверных попыток в час на один Telegram-аккаунт.
+create or replace function public.telegram_link(
+  p_code text, p_tg_user_id bigint, p_chat_id bigint, p_username text, p_name text
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_code text;
+  l public.telegram_links;
+begin
+  if (select count(*) from public.telegram_attempts a
+       where a.tg_user_id = p_tg_user_id and not a.ok and a.created_at > now() - interval '1 hour') >= 5 then
+    return jsonb_build_object('ok', false, 'reason', 'limit');
+  end if;
+  v_code := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
+  select * into l from public.telegram_links where code = v_code and length(v_code) = 6 for update;
+  if not found then
+    insert into public.telegram_attempts (tg_user_id, ok) values (p_tg_user_id, false);
+    return jsonb_build_object('ok', false, 'reason', 'bad');
+  end if;
+  -- один Telegram — один ученик: старую привязку этого аккаунта снимаем
+  update public.telegram_links
+     set tg_user_id = null, tg_chat_id = null, tg_username = '', tg_name = '', linked_at = null
+   where tg_user_id = p_tg_user_id and student_id <> l.student_id;
+  update public.telegram_links
+     set code = null, tg_user_id = p_tg_user_id, tg_chat_id = p_chat_id,
+         tg_username = left(coalesce(p_username, ''), 64), tg_name = left(coalesce(p_name, ''), 128),
+         linked_at = now(), reminders = true
+   where student_id = l.student_id;
+  -- у привязанного ученика всегда есть кабинет: в него ведёт кнопка меню бота
+  insert into public.student_portals (student_id, owner_id) values (l.student_id, l.owner_id)
+  on conflict (student_id) do nothing;
+  insert into public.telegram_attempts (tg_user_id, ok) values (p_tg_user_id, true);
+  return jsonb_build_object('ok', true) || public.telegram_context(p_tg_user_id);
+end;
+$$;
+
+create or replace function public.telegram_set_reminders(p_tg_user_id bigint, p_on boolean)
+returns boolean
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  update public.telegram_links set reminders = p_on where tg_user_id = p_tg_user_id returning reminders;
+$$;
+
+-- Ежечасно: кому пора напомнить. Помечает учеников, у которых сейчас их час и сегодня ещё не было
+-- напоминания, и возвращает тех, кому есть что повторить и кто сегодня ещё не занимался.
+-- Повторный вызов в тот же час ничего не возвращает — поэтому лишних сообщений не будет.
+create or replace function public.telegram_reminders_claim()
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  l record;
+  v_today jsonb;
+  v_out jsonb := '[]'::jsonb;
+  v_left integer;
+begin
+  for l in
+    update public.telegram_links t
+       set last_reminded_on = (now() at time zone t.tz)::date
+     where t.tg_chat_id is not null and t.reminders
+       and extract(hour from now() at time zone t.tz) = t.remind_hour
+       and (t.last_reminded_on is null or t.last_reminded_on < (now() at time zone t.tz)::date)
+    returning t.student_id, t.tg_chat_id, t.tz
+  loop
+    v_today := public.telegram_student_today(l.student_id, l.tz);
+    v_left := coalesce((v_today #>> '{grammar,due}')::int, 0) + coalesce((v_today #>> '{grammar,new}')::int, 0)
+            + coalesce((v_today #>> '{vocab,due}')::int, 0) + coalesce((v_today #>> '{vocab,new}')::int, 0);
+    if v_left > 0 and not (v_today ->> 'practiced')::boolean then
+      v_out := v_out || jsonb_build_array(
+        jsonb_build_object(
+          'chat_id', l.tg_chat_id,
+          'student', (select split_part(trim(s.name), ' ', 1) from public.students s where s.id = l.student_id),
+          'portal', (select p.token from public.student_portals p where p.student_id = l.student_id)
+        ) || v_today
+      );
+    end if;
+  end loop;
+  return v_out;
+end;
+$$;
+
+-- Кабинет ученика: код для привязки (запись заводится при первом открытии) и статус Telegram.
+-- p_tz — часовой пояс браузера ученика: по нему считается час напоминания.
+create or replace function public.telegram_portal(p_token text, p_tz text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  p public.student_portals;
+  l public.telegram_links;
+begin
+  select * into p from public.student_portals where token = p_token;
+  if not found then
+    return null;
+  end if;
+  insert into public.telegram_links (student_id, owner_id) values (p.student_id, p.owner_id)
+  on conflict (student_id) do nothing;
+  if p_tz is not null and exists (select 1 from pg_catalog.pg_timezone_names z where z.name = p_tz) then
+    update public.telegram_links set tz = p_tz where student_id = p.student_id and tz <> p_tz;
+  end if;
+  select * into l from public.telegram_links where student_id = p.student_id;
+  return jsonb_build_object(
+    'linked', l.tg_user_id is not null, 'code', l.code, 'username', l.tg_username,
+    'reminders', l.reminders, 'remind_hour', l.remind_hour
+  );
+end;
+$$;
+
+revoke all on function public.telegram_new_code() from public;
+revoke all on function public.telegram_reset(uuid) from public;
+revoke all on function public.telegram_student_today(uuid, text) from public;
+revoke all on function public.telegram_context(bigint) from public;
+revoke all on function public.telegram_link(text, bigint, bigint, text, text) from public;
+revoke all on function public.telegram_set_reminders(bigint, boolean) from public;
+revoke all on function public.telegram_reminders_claim() from public;
+revoke all on function public.telegram_portal(text, text) from public;
+grant execute on function public.telegram_new_code() to authenticated, service_role;
+grant execute on function public.telegram_reset(uuid) to authenticated;
+grant execute on function public.telegram_student_today(uuid, text) to service_role;
+grant execute on function public.telegram_context(bigint) to service_role;
+grant execute on function public.telegram_link(text, bigint, bigint, text, text) to service_role;
+grant execute on function public.telegram_set_reminders(bigint, boolean) to service_role;
+grant execute on function public.telegram_reminders_claim() to service_role;
+grant execute on function public.telegram_portal(text, text) to anon, authenticated;
+
+-- Каждый час в :00 — задача напоминаний бота (Edge Function `telegram`, ?task=remind).
+-- Вызов идемпотентен: за час ученик получает не больше одного сообщения, за день — тоже одно.
+select cron.unschedule('telegram-remind') where exists (select 1 from cron.job where jobname = 'telegram-remind');
+select cron.schedule(
+  'telegram-remind',
+  '0 * * * *',
+  $cron$
+    select net.http_post(
+      url := 'https://sxiykdtpnjxmstwfjgsq.supabase.co/functions/v1/telegram?task=remind',
+      headers := '{"Content-Type": "application/json"}'::jsonb,
+      body := '{}'::jsonb
+    );
+  $cron$
+);

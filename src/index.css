@@ -1547,3 +1547,15 @@ tr.clickable:hover td {
     font-size: 20px;
   }
 }
+
+/* Код привязки Telegram в карточке ученика */
+.tg-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}

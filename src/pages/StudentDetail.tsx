@@ -7,6 +7,7 @@ import { ScoreChart } from '../components/ScoreChart'
 import { StatusBadge } from '../components/StatusBadge'
 import { StudentPortal } from '../components/StudentPortal'
 import { StudentGrammar } from '../components/StudentGrammar'
+import { StudentTelegram } from '../components/StudentTelegram'
 import { StudentVocab } from '../components/StudentVocab'
 import { describeExam, formatDate, today } from '../dates'
 import { OUTCOME_LABELS } from '../lessons'
@@ -124,6 +125,11 @@ export function StudentDetail() {
       <section className="card">
         <h2>Грамматика</h2>
         <StudentGrammar key={student.id} student={student} />
+      </section>
+
+      <section className="card">
+        <h2>Telegram</h2>
+        <StudentTelegram key={student.id} student={student} />
       </section>
 
       <section className="card">

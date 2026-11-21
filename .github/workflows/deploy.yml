@@ -32,6 +32,8 @@ jobs:
           # Если не заданы, сайт соберётся в локальном режиме (localStorage).
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          # Юзернейм Telegram-бота без @ (переменная TELEGRAM_BOT); пусто — блоки Telegram скрыты.
+          VITE_TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
