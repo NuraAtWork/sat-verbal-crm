@@ -5,6 +5,7 @@ import {
   ClipboardList,
   FileCheck2,
   Home as HomeIcon,
+  SpellCheck,
   Target,
   type LucideIcon,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ import {
   type PortalAssignment,
   type PortalHome,
   type PortalLesson,
+  type PortalGrammar,
   type PortalVocab,
 } from '../portal'
 import { DOMAINS, skillName } from '../sat'
@@ -25,7 +27,7 @@ import { demoHome } from './demo'
 import './portal.css'
 
 // Кабинет ученика: постоянная ссылка #/me/<token>[/<раздел>], без входа. Только чтение: отсюда ученик
-// переходит к заданиям (#/solve/<token>) и в тренер слов (#/vocab/<token>).
+// переходит к заданиям (#/solve/<token>), в тренер слов (#/vocab/<token>) и грамматики (#/grammar/<token>).
 // #/me/demo — демо с выдуманным учеником. Блоки-«затычки» (Soon) показывают, что появится позже.
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -43,6 +45,7 @@ const SECTIONS = [
   { id: 'lessons', label: 'Уроки', icon: CalendarDays },
   { id: 'exam', label: 'Путь к экзамену', icon: Target },
   { id: 'vocab', label: 'Словарь', icon: BookOpen },
+  { id: 'grammar', label: 'Грамматика', icon: SpellCheck },
 ] as const satisfies readonly { id: string; label: string; icon: LucideIcon }[]
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -152,6 +155,7 @@ interface View {
   todo: PortalAssignment[]
   done: PortalAssignment[]
   vocabDone: boolean
+  grammarDone: boolean
   latest: number | null
   examIn: number | null
 }
@@ -170,6 +174,7 @@ function Cabinet({ home, token, demo }: { home: PortalHome; token: string; demo:
 
   const link = (id: SectionId) => `#/me/${token}${id === 'home' ? '' : `/${id}`}`
   const vocab = home.vocab
+  const grammar = home.grammar ?? null
   const view: View = {
     home,
     demo,
@@ -182,6 +187,7 @@ function Cabinet({ home, token, demo }: { home: PortalHome; token: string; demo:
       .filter((a) => a.submitted_at)
       .sort((a, b) => (b.submitted_at ?? '').localeCompare(a.submitted_at ?? '')),
     vocabDone: Boolean(vocab && vocab.due === 0 && vocab.reviews_today > 0),
+    grammarDone: Boolean(grammar && grammar.due === 0 && grammar.reviews_today > 0),
     latest: home.scores.length ? home.scores[home.scores.length - 1].score : home.baseline_score,
     examIn: home.exam_date ? daysUntil(home.exam_date) : null,
   }
@@ -190,6 +196,7 @@ function Cabinet({ home, token, demo }: { home: PortalHome; token: string; demo:
     homework: view.todo.filter((a) => a.kind !== 'test').length,
     tests: view.todo.filter((a) => a.kind === 'test').length,
     vocab: vocab && !view.vocabDone ? vocab.due : 0,
+    grammar: grammar && !view.grammarDone ? grammar.due : 0,
   }
 
   return (
@@ -228,6 +235,7 @@ function Cabinet({ home, token, demo }: { home: PortalHome; token: string; demo:
         {section === 'lessons' && <LessonsSection v={view} />}
         {section === 'exam' && <ExamSection v={view} />}
         {section === 'vocab' && <VocabSection v={view} />}
+        {section === 'grammar' && <GrammarSection v={view} />}
       </main>
     </div>
   )
@@ -369,6 +377,26 @@ function VocabRow({ vocab, done }: { vocab: PortalVocab; done: boolean }) {
   )
 }
 
+function GrammarRow({ grammar, done }: { grammar: PortalGrammar; done: boolean }) {
+  return (
+    <li className="pt-row">
+      <div className="pt-row-main">
+        <div className="pt-row-title">Грамматика на сегодня</div>
+        <div className="pt-row-meta">
+          {done
+            ? 'Сегодня уже занимался ✓'
+            : grammar.due > 0
+              ? `${grammar.due} ${plural(grammar.due, 'правило ждёт', 'правила ждут', 'правил ждут')} повторения`
+              : 'Новое правило и повторение — 5–10 минут'}
+        </div>
+      </div>
+      <a className={`sbtn ${done ? '' : 'sbtn-primary'}`} href={`#/grammar/${grammar.token}`}>
+        {done ? 'Открыть' : 'Тренировать'}
+      </a>
+    </li>
+  )
+}
+
 function LessonBody({ lesson, full }: { lesson: PortalLesson; full?: boolean }) {
   const parts: [string, string | undefined][] = full
     ? [
@@ -413,8 +441,9 @@ function LessonBody({ lesson, full }: { lesson: PortalLesson; full?: boolean }) 
 // --- Разделы -------------------------------------------------------------------------
 
 function HomeSection({ v }: { v: View }) {
-  const { home, todo, vocabDone } = v
+  const { home, todo, vocabDone, grammarDone } = v
   const vocab = home.vocab
+  const grammar = home.grammar ?? null
   const lesson = home.lessons[0]
   return (
     <>
@@ -429,12 +458,13 @@ function HomeSection({ v }: { v: View }) {
       </Tiles>
 
       <Card title="Сделать сейчас">
-        {todo.length === 0 && (!vocab || vocabDone) && <p className="solve-muted">Новых заданий нет — всё сделано.</p>}
+        {todo.length === 0 && (!vocab || vocabDone) && (!grammar || grammarDone) && <p className="solve-muted">Новых заданий нет — всё сделано.</p>}
         <ul className="pt-list">
           {todo.slice(0, 4).map((a) => (
             <TodoRow key={a.token} a={a} demo={v.demo} />
           ))}
           {vocab && <VocabRow vocab={vocab} done={vocabDone} />}
+          {grammar && <GrammarRow grammar={grammar} done={grammarDone} />}
         </ul>
         {todo.length > 4 && (
           <a className="pt-more" href={v.link('homework')}>
@@ -726,6 +756,37 @@ function VocabSection({ v }: { v: View }) {
         </>
       )}
       <Soon title="Мои слова">Список всех твоих слов: выученные, в работе и трудные — с определением и переводом.</Soon>
+    </>
+  )
+}
+
+function GrammarSection({ v }: { v: View }) {
+  const grammar = v.home.grammar ?? null
+  return (
+    <>
+      <Head title="Грамматика" note="Тренажёр правил Standard English Conventions: сейчас — Boundaries (знаки на границах)." />
+      {!grammar ? (
+        <Card>
+          <p className="solve-muted">Тренажёр грамматики пока не включён — попроси преподавателя его открыть.</p>
+        </Card>
+      ) : (
+        <>
+          <Tiles>
+            <Tile value={grammar.due} label={plural(grammar.due, 'правило ждёт повторения', 'правила ждут повторения', 'правил ждут повторения')} />
+            <Tile value={grammar.started - grammar.known} label="в работе" />
+            <Tile value={`${grammar.known}/${grammar.total}`} label="освоено" />
+          </Tiles>
+          <Card title="Тренировка на сегодня">
+            <ul className="pt-list">
+              <GrammarRow grammar={grammar} done={v.grammarDone} />
+            </ul>
+            <p className="solve-muted pt-fine">
+              Каждый день — одно-два новых правила и повторение старых. Правило, в котором ошибся, вернётся в тот же день
+              с другим предложением, а выученное — через несколько дней.
+            </p>
+          </Card>
+        </>
+      )}
     </>
   )
 }

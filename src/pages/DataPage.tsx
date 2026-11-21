@@ -5,6 +5,7 @@ import { emptyDb, normalizeDb } from '../db'
 import { isQuestionSet, uploadQuestionSets } from '../sets'
 import { supabase } from '../supabase'
 import { useStore } from '../useStore'
+import { parseGrammarRule, uploadGrammarRules, type GrammarRule } from '../grammar'
 import { parseVocabWord, uploadVocabWords, type VocabWord } from '../vocab'
 
 export function DataPage() {
@@ -81,6 +82,28 @@ export function DataPage() {
           setsNote += ` Слов для тренера загружено: ${words.length}${skippedNote}.`
         } else {
           setsNote += ` Слова для тренера (${words.length}) загрузятся только в облачном режиме.`
+        }
+      }
+      // Правила тренера грамматики (grammarRules) — только в облаке; без упражнений пропускаются.
+      const rawRules = (raw as { grammarRules?: unknown }).grammarRules
+      if (Array.isArray(rawRules) && rawRules.length) {
+        const rules = rawRules.map(parseGrammarRule).filter((r): r is GrammarRule => r !== null)
+        const skipped = rawRules.length - rules.length
+        const skippedNote = skipped ? ` (пропущено без упражнений: ${skipped})` : ''
+        if (cloud && supabase) {
+          setBusy(true)
+          try {
+            await uploadGrammarRules(supabase, rules, (done, total) => setMessage(`Загружаю правила: ${done}/${total}…`))
+          } catch (e) {
+            setMessage(`Не удалось загрузить правила: ${e instanceof Error ? e.message : String(e)}. Попробуйте ещё раз.`)
+            return
+          } finally {
+            setBusy(false)
+          }
+          const items = rules.reduce((a, r) => a + r.items.length, 0)
+          setsNote += ` Правил грамматики загружено: ${rules.length}, упражнений: ${items}${skippedNote}.`
+        } else {
+          setsNote += ` Правила грамматики (${rules.length}) загрузятся только в облачном режиме.`
         }
       }
       const counts =

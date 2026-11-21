@@ -146,7 +146,7 @@ export function checkTyped(input: string, expected: string, word: string): Typed
 }
 
 /** Детерминированный генератор: один и тот же seed даёт один и тот же порядок вариантов. */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
@@ -157,7 +157,7 @@ function rng(seed: number): () => number {
   }
 }
 
-function shuffled<T>(items: T[], rand: () => number): T[] {
+export function shuffled<T>(items: T[], rand: () => number): T[] {
   const a = [...items]
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1))
