@@ -57,10 +57,11 @@ export const STATUS_LABELS: Record<StudentStatus, string> = {
 export const STATUSES = Object.keys(STATUS_LABELS) as StudentStatus[]
 
 /**
- * В интерфейсе сейчас два раздела: «Вопросы по категориям» (practice) и «Прошлые тесты» (test).
+ * В интерфейсе сейчас три раздела: «Методички» (guide), «Вопросы по категориям» (practice) и «Прошлые тесты» (test).
  * Остальные типы остаются в схеме для совместимости и показываются в «Другие материалы», если есть.
  */
 export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
+  guide: 'Методички',
   practice: 'Вопросы по категориям',
   test: 'Прошлые тесты',
   vocab: 'Словарь',
@@ -69,7 +70,7 @@ export const MATERIAL_KIND_LABELS: Record<MaterialKind, string> = {
   other: 'Другое',
 }
 
-export const ACTIVE_MATERIAL_KINDS: MaterialKind[] = ['practice', 'test']
+export const ACTIVE_MATERIAL_KINDS: MaterialKind[] = ['guide', 'practice', 'test']
 
 /** Ссылка для href: только http(s); «example.com/x» дополняется до https://. Иначе null. */
 export function safeUrl(raw: string): string | null {

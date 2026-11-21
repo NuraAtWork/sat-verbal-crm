@@ -10,9 +10,7 @@ import { StudentGrammar } from '../components/StudentGrammar'
 import { StudentTelegram } from '../components/StudentTelegram'
 import { StudentVocab } from '../components/StudentVocab'
 import { describeExam, formatDate, today } from '../dates'
-import { OUTCOME_LABELS } from '../lessons'
-import { DOMAINS, parseScore, skillName } from '../sat'
-import '../lessons.css'
+import { DOMAINS, SKILLS, parseScore, skillName } from '../sat'
 import { lessonsOf, newId, scoresOf } from '../db'
 import { useSkillAnalytics } from '../useSkillAnalytics'
 import { useStore } from '../useStore'
@@ -141,9 +139,7 @@ export function StudentDetail() {
 
       <section className="card">
         <h2>Уроки</h2>
-        <Link className="btn btn-primary" to={`/lessons/new?student=${student.id}`}>
-          <Plus size={16} aria-hidden="true" /> Собрать урок
-        </Link>
+        <AddLessonForm student={student} />
         <LessonList lessons={lessons} />
       </section>
     </div>
@@ -264,6 +260,110 @@ function AddScoreForm({ student }: { student: Student }) {
   )
 }
 
+function AddLessonForm({ student }: { student: Student }) {
+  const { dispatch } = useStore()
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(today())
+  const [duration, setDuration] = useState('60')
+  const [topics, setTopics] = useState<string[]>([])
+  const [homework, setHomework] = useState('')
+  const [notes, setNotes] = useState('')
+  const [paid, setPaid] = useState(false)
+
+  if (!open) {
+    return (
+      <button className="btn btn-primary" onClick={() => setOpen(true)}>
+        <Plus size={16} aria-hidden="true" /> Записать урок
+      </button>
+    )
+  }
+
+  const toggle = (id: string) =>
+    setTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]))
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    dispatch({
+      type: 'lesson/upsert',
+      lesson: {
+        id: newId(),
+        studentId: student.id,
+        date,
+        durationMin: Math.max(0, Number(duration) || 0),
+        topics,
+        homework: homework.trim(),
+        notes: notes.trim(),
+        paid,
+      },
+    })
+    setTopics([])
+    setHomework('')
+    setNotes('')
+    setPaid(false)
+    setOpen(false)
+  }
+
+  return (
+    <form className="lesson-form" onSubmit={onSubmit}>
+      <div className="field-row">
+        <label className="field">
+          <span>Дата</span>
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        </label>
+        <label className="field">
+          <span>Длительность, мин</span>
+          <input
+            className="input"
+            type="number"
+            min={0}
+            step={15}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          />
+        </label>
+        <label className="field checkbox">
+          <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
+          <span>Оплачен</span>
+        </label>
+      </div>
+
+      <div className="field">
+        <span>Темы</span>
+        <div className="chips">
+          {SKILLS.map((s) => (
+            <button
+              type="button"
+              key={s.id}
+              className={`chip ${topics.includes(s.id) ? 'chip-on' : ''}`}
+              onClick={() => toggle(s.id)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="field">
+        <span>Домашнее задание</span>
+        <input className="input" value={homework} onChange={(e) => setHomework(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Заметки по уроку</span>
+        <textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </label>
+
+      <div className="row">
+        <button className="btn btn-primary" type="submit">
+          Сохранить урок
+        </button>
+        <button className="btn" type="button" onClick={() => setOpen(false)}>
+          Отмена
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function LessonList({ lessons }: { lessons: Lesson[] }) {
   const { dispatch } = useStore()
   if (lessons.length === 0) return <p className="muted">Уроков пока не было.</p>
@@ -274,11 +374,8 @@ function LessonList({ lessons }: { lessons: Lesson[] }) {
         <li key={l.id} className="lesson">
           <div className="lesson-head">
             <strong>{formatDate(l.date)}</strong>
-            <Link to={`/lessons/${l.id}`}>{l.plan?.title || 'Открыть урок'}</Link>
+            {l.plan?.title && <span>{l.plan.title}</span>}
             <span className="muted">{l.durationMin} мин</span>
-            {l.plan?.outcome && (
-              <span className={`badge le-outcome-${l.plan.outcome}`}>{OUTCOME_LABELS[l.plan.outcome]}</span>
-            )}
             <button
               className={`badge ${l.paid ? 'badge-active' : 'badge-unpaid'}`}
               title="Нажмите, чтобы переключить"

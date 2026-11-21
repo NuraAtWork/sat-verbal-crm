@@ -29,7 +29,7 @@ export interface Lesson {
   homework: string
   notes: string
   paid: boolean
-  /** Содержание урока из конструктора; у старых уроков его нет */
+  /** План урока из прежнего конструктора (раздел «Уроки» убран 21.11.2026): данные хранятся, но не редактируются */
   plan?: LessonPlan | null
 }
 
@@ -60,18 +60,6 @@ export interface LessonPlan {
   templateId: string
 }
 
-/** Заготовка урока: тот же план без ученика и даты. */
-export interface LessonTemplate {
-  id: string
-  /** id навыков из SKILLS */
-  skills: string[]
-  durationMin: number
-  /** Текст домашнего задания по умолчанию */
-  homework: string
-  plan: LessonPlan
-  createdAt: string
-}
-
 export interface ScoreEntry {
   id: string
   studentId: string
@@ -84,7 +72,7 @@ export interface ScoreEntry {
   notes: string
 }
 
-export type MaterialKind = 'test' | 'practice' | 'vocab' | 'theory' | 'video' | 'other'
+export type MaterialKind = 'test' | 'practice' | 'guide' | 'vocab' | 'theory' | 'video' | 'other'
 
 export interface Material {
   id: string
@@ -98,6 +86,8 @@ export interface Material {
   createdAt: string
   /** id сета вопросов в облаке (question_sets), если материал — интерактивный сет */
   setId?: string | null
+  /** Текст методички (kind = 'guide'), HTML; санитизируется при показе */
+  body?: string
 }
 
 export interface Db {
@@ -106,8 +96,6 @@ export interface Db {
   lessons: Lesson[]
   scores: ScoreEntry[]
   materials: Material[]
-  /** Заготовки уроков репетитора */
-  lessonTemplates: LessonTemplate[]
 }
 
 // --- Сеты вопросов и задания (только облачный режим) ---
