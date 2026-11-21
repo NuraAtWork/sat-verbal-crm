@@ -178,6 +178,32 @@ RPC `start_test_module` / `submit_test_module`, вернуться в сданн
 - Отложено: страница «Правила» в CRM (просмотр и правка, как «Словарь»), правила из ошибок в заданиях
   Boundaries (как очередь слов), смешанный «экзаменационный» режим без привязки к правилу.
 
+## Telegram-бот (@SatStartBot): напоминания и кабинет как Mini App
+
+Привязка — по коду: у каждого ученика одноразовый код из 6 символов (без похожих 0/O, 1/I/L). Ученик отправляет его
+боту или открывает `t.me/<бот>?start=<код>` (кнопка «Подключить Telegram» в кабинете); бот запоминает его Telegram,
+код сгорает. «Отвязать и выдать новый код» в карточке ученика снимает привязку. Неверных попыток — не больше 5 в час.
+
+- Сервер — Edge Function `telegram` (`supabase/functions/telegram/index.ts`, verify_jwt = false): вебхук Telegram
+  (секрет вебхука выводится из токена), `?task=setup` (вебхук, команды, описание — вызывать после смены бота),
+  `?task=remind` (pg_cron `telegram-remind` каждый час в :00 через pg_net). Деплой — через Supabase (MCP/CLI).
+- Настройки только переменными: токен — секрет Supabase `TELEGRAM_BOT_TOKEN` (не в коде и не в чате), адрес сайта —
+  `SITE_URL` (по умолчанию GitHub Pages), имя бота для сайта — переменная репозитория `TELEGRAM_BOT` →
+  `VITE_TELEGRAM_BOT` (пусто — блоки Telegram скрыты). Сменить бота = новый токен + `?task=setup` + переменная;
+  ученикам нужно один раз нажать «Start» в новом боте (привязка хранится по их Telegram-аккаунту).
+- Таблицы: `telegram_links` (код, tg-аккаунт, напоминания, час, `tz` из браузера ученика),
+  `telegram_attempts`. Функции бота (`telegram_link`, `telegram_context`, `telegram_set_reminders`,
+  `telegram_reminders_claim`, `telegram_student_today`) — только service_role; кабинет — `telegram_portal`;
+  репетитор — `telegram_reset` и таблица под RLS. Код: `src/telegram.ts`, `src/components/StudentTelegram.tsx`,
+  карточка «Напоминания в Telegram» на Главной кабинета.
+- Напоминание — раз в день в час ученика (по умолчанию 19:00), только про тренеры (грамматика и слова, без ДЗ),
+  только если есть что повторить или ввести новое и сегодня ученик ещё не занимался. Команды бота: /today, /stop,
+  /remind, /help.
+- Mini App: кнопки бота и кнопка меню «Кабинет» открывают `SITE_URL?open=<me|grammar|vocab>/<token>`;
+  `prepareTelegramEntry` (src/telegram.ts) переводит это в #-маршрут и убирает параметры `tgWebApp…` из адреса
+  (Telegram дописывает их в #), сохраняя их в sessionStorage `tg-launch`.
+- Дальше: вход по Telegram без токенов (проверка `initData` подписью бота в Edge Function), сводка репетитору.
+
 ## Кабинет ученика
 
 Постоянная ссылка `#/me/<token>[/<раздел>]` без входа (`#/me/demo` — демо с выдуманным учеником). Только чтение.

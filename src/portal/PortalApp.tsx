@@ -23,6 +23,7 @@ import {
 } from '../portal'
 import { DOMAINS, skillName } from '../sat'
 import { supabase } from '../supabase'
+import { TELEGRAM_BOT, botLink, fetchPortalTelegram, formatCode, type PortalTelegram } from '../telegram'
 import { demoHome } from './demo'
 import './portal.css'
 
@@ -150,6 +151,8 @@ function Message({ title, children }: { title: string; children: ReactNode }) {
 interface View {
   home: PortalHome
   demo: boolean
+  /** Токен кабинета ('demo' в демо) */
+  token: string
   /** Адрес раздела кабинета */
   link: (id: SectionId) => string
   todo: PortalAssignment[]
@@ -178,6 +181,7 @@ function Cabinet({ home, token, demo }: { home: PortalHome; token: string; demo:
   const view: View = {
     home,
     demo,
+    token,
     link,
     todo: home.assignments
       .filter((a) => !a.submitted_at)
@@ -397,6 +401,46 @@ function GrammarRow({ grammar, done }: { grammar: PortalGrammar; done: boolean }
   )
 }
 
+/** Напоминания в Telegram: код для бота или «уже подключён». */
+function TelegramCard({ token, demo }: { token: string; demo: boolean }) {
+  const [tg, setTg] = useState<PortalTelegram | null>(
+    demo ? { linked: false, code: 'K7M4QX', username: '', reminders: true, remind_hour: 19 } : null,
+  )
+  useEffect(() => {
+    if (demo || !supabase) return
+    let cancelled = false
+    fetchPortalTelegram(supabase, token).then(
+      (t) => !cancelled && setTg(t),
+      () => undefined,
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [token, demo])
+  if (!tg) return null
+  return (
+    <Card title="Напоминания в Telegram">
+      {tg.linked ? (
+        <p className="pt-fine">
+          Подключено{tg.username ? ` (@${tg.username})` : ''} ✓{' '}
+          {tg.reminders ? `Бот напомнит про тренеры в ${tg.remind_hour}:00, если ты ещё не занимался.` : 'Напоминания выключены — включить: /remind в боте.'}
+        </p>
+      ) : (
+        <>
+          <p className="pt-fine">
+            Бот @{TELEGRAM_BOT} каждый вечер напомнит про тренеры, а кнопка «Кабинет» в боте откроет всё сразу. Нажми
+            кнопку — код отправится сам. Или отправь боту код вручную.
+          </p>
+          {tg.code && <p className="pt-tg-code">{formatCode(tg.code)}</p>}
+        </>
+      )}
+      <a className="sbtn sbtn-primary" href={demo ? botLink() : botLink(tg.linked ? null : tg.code)} target="_blank" rel="noreferrer">
+        {tg.linked ? 'Открыть бота' : 'Подключить Telegram'}
+      </a>
+    </Card>
+  )
+}
+
 function LessonBody({ lesson, full }: { lesson: PortalLesson; full?: boolean }) {
   const parts: [string, string | undefined][] = full
     ? [
@@ -472,6 +516,8 @@ function HomeSection({ v }: { v: View }) {
           </a>
         )}
       </Card>
+
+      {TELEGRAM_BOT && (vocab || grammar) && <TelegramCard token={v.token} demo={v.demo} />}
 
       {lesson && (
         <Card title="Последний урок" note={shortDate(lesson.date)}>
