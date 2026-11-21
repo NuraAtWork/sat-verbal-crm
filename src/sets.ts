@@ -113,14 +113,12 @@ export async function createAssignment(
   studentId: string,
   setId: string,
   dueDate: string,
-  /** Урок, из которого выдаётся задание (ДЗ к уроку) */
-  lessonId?: string,
 ): Promise<Assignment> {
   const data = check(
     await sb
       .from('assignments')
-      .insert({ student_id: studentId, set_id: setId, due_date: dueDate || null, ...(lessonId && { lesson_id: lessonId }) })
-      .select(lessonId ? `${ASSIGNMENT_COLS}, lesson_id` : ASSIGNMENT_COLS)
+      .insert({ student_id: studentId, set_id: setId, due_date: dueDate || null })
+      .select(ASSIGNMENT_COLS)
       .single(),
   )
   return rowToAssignment(data as unknown as AssignmentRow)
@@ -205,7 +203,7 @@ export function assignmentStatus(a: Assignment): { label: string; cls: string } 
 
 // --- Пробные тесты -------------------------------------------------------------------
 
-// ...и lesson_id — после блока «Конструктор уроков»
+// ...и lesson_id — после блока «Конструктор уроков» (у ДЗ, выданных из прежнего конструктора)
 const TEST_ASSIGNMENT_COLS = 'score_estimate, module_answers, lesson_id'
 
 export const isTestSet = (s: { kind?: string | null } | null | undefined) => s?.kind === 'test'

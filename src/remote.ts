@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePlan, type Action } from './db'
-import type { Db, Lesson, LessonPlan, LessonTemplate, Material, MaterialKind, ScoreEntry, Student, StudentStatus } from './types'
+import type { Db, Lesson, LessonPlan, Material, MaterialKind, ScoreEntry, Student, StudentStatus } from './types'
 
 // Строки таблиц Supabase (snake_case). owner_id проставляет база (default auth.uid()).
 
@@ -28,15 +28,6 @@ interface LessonRow {
   notes: string
   paid: boolean
   plan: LessonPlan | null
-}
-
-interface TemplateRow {
-  id: string
-  skills: string[]
-  duration_min: number
-  homework: string
-  plan: LessonPlan
-  created_at: string
 }
 
 interface ScoreRow {
@@ -100,24 +91,6 @@ const rowToLesson = (r: LessonRow): Lesson => ({
   plan: r.plan ? normalizePlan(r.plan) : null,
 })
 
-const templateToRow = (t: LessonTemplate): TemplateRow => ({
-  id: t.id,
-  skills: t.skills,
-  duration_min: t.durationMin,
-  homework: t.homework,
-  plan: t.plan,
-  created_at: t.createdAt,
-})
-
-const rowToTemplate = (r: TemplateRow): LessonTemplate => ({
-  id: r.id,
-  skills: r.skills ?? [],
-  durationMin: r.duration_min,
-  homework: r.homework,
-  plan: normalizePlan(r.plan),
-  createdAt: r.created_at,
-})
-
 const scoreToRow = (s: ScoreEntry): ScoreRow => ({
   id: s.id,
   student_id: s.studentId,
@@ -145,6 +118,7 @@ interface MaterialRow {
   notes: string
   created_at: string
   set_id: string | null
+  body: string
 }
 
 const materialToRow = (m: Material): MaterialRow => ({
@@ -156,6 +130,7 @@ const materialToRow = (m: Material): MaterialRow => ({
   notes: m.notes,
   created_at: m.createdAt,
   set_id: m.setId ?? null,
+  body: m.body ?? '',
 })
 
 const rowToMaterial = (r: MaterialRow): Material => ({
@@ -167,14 +142,14 @@ const rowToMaterial = (r: MaterialRow): Material => ({
   notes: r.notes,
   createdAt: r.created_at,
   setId: r.set_id,
+  body: r.body ?? '',
 })
 
 const STUDENT_COLS =
   'id, name, contact, parent_contact, status, start_date, exam_date, baseline_score, target_score, notes, created_at'
 const LESSON_COLS = 'id, student_id, date, duration_min, topics, homework, notes, paid, plan'
-const TEMPLATE_COLS = 'id, skills, duration_min, homework, plan, created_at'
 const SCORE_COLS = 'id, student_id, date, source, score, notes'
-const MATERIAL_COLS = 'id, title, url, kind, skills, notes, created_at, set_id'
+const MATERIAL_COLS = 'id, title, url, kind, skills, notes, created_at, set_id, body'
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message)
@@ -183,12 +158,11 @@ function check<T>(res: { data: T; error: { message: string } | null }): T {
 
 /** Загружает все данные текущего пользователя. */
 export async function fetchAll(sb: SupabaseClient): Promise<Db> {
-  const [students, lessons, scores, materials, templates] = await Promise.all([
+  const [students, lessons, scores, materials] = await Promise.all([
     sb.from('students').select(STUDENT_COLS),
     sb.from('lessons').select(LESSON_COLS),
     sb.from('scores').select(SCORE_COLS),
     sb.from('materials').select(MATERIAL_COLS),
-    sb.from('lesson_templates').select(TEMPLATE_COLS),
   ])
   return {
     version: 1,
@@ -196,7 +170,6 @@ export async function fetchAll(sb: SupabaseClient): Promise<Db> {
     lessons: (check(lessons) as LessonRow[]).map(rowToLesson),
     scores: (check(scores) as ScoreRow[]).map(rowToScore),
     materials: (check(materials) as MaterialRow[]).map(rowToMaterial),
-    lessonTemplates: (check(templates) as TemplateRow[]).map(rowToTemplate),
   }
 }
 
@@ -239,22 +212,14 @@ export async function applyRemote(sb: SupabaseClient, action: Action): Promise<v
     case 'material/delete':
       check(await sb.from('materials').delete().eq('id', action.id))
       return
-    case 'template/upsert':
-      check(await sb.from('lesson_templates').upsert(templateToRow(action.template)))
-      return
-    case 'template/delete':
-      check(await sb.from('lesson_templates').delete().eq('id', action.id))
-      return
     case 'db/replace':
       // Удаляем всё своё (RLS ограничивает строками пользователя), затем вставляем заново.
       check(await sb.from('students').delete().not('id', 'is', null))
       check(await sb.from('materials').delete().not('id', 'is', null))
-      check(await sb.from('lesson_templates').delete().not('id', 'is', null))
       await inChunks(action.db.students.map(studentToRow), (c) => sb.from('students').insert(c))
       await inChunks(action.db.lessons.map(lessonToRow), (c) => sb.from('lessons').insert(c))
       await inChunks(action.db.scores.map(scoreToRow), (c) => sb.from('scores').insert(c))
       await inChunks(action.db.materials.map(materialToRow), (c) => sb.from('materials').insert(c))
-      await inChunks(action.db.lessonTemplates.map(templateToRow), (c) => sb.from('lesson_templates').insert(c))
       return
     case 'db/merge':
       // Порядок важен: уроки и тесты ссылаются на учеников.
@@ -262,7 +227,6 @@ export async function applyRemote(sb: SupabaseClient, action: Action): Promise<v
       await inChunks(action.db.lessons.map(lessonToRow), (c) => sb.from('lessons').upsert(c))
       await inChunks(action.db.scores.map(scoreToRow), (c) => sb.from('scores').upsert(c))
       await inChunks(action.db.materials.map(materialToRow), (c) => sb.from('materials').upsert(c))
-      await inChunks(action.db.lessonTemplates.map(templateToRow), (c) => sb.from('lesson_templates').upsert(c))
       return
   }
 }

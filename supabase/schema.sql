@@ -1505,7 +1505,7 @@ revoke all on function public.vocab_overview(text) from public, anon;
 grant execute on function public.vocab_overview(text) to authenticated;
 
 -- ============================================================================
--- Конструктор уроков
+-- Конструктор уроков (раздел убран из CRM 21.11.2026; колонки и таблица остаются — в них лежат старые данные)
 -- ----------------------------------------------------------------------------
 -- Урок собирается из блоков: тема, цели, «хороший результат», теория, практика (сеты на уроке),
 -- ДЗ (сеты → задания ученика) и итог. Всё содержание лежит в lessons.plan (jsonb, см. LessonPlan
@@ -2479,3 +2479,17 @@ select cron.schedule(
     );
   $cron$
 );
+
+-- ============================================================================
+-- Методички по навыкам
+-- ----------------------------------------------------------------------------
+-- Методичка для репетитора — материал kind = 'guide' с текстом в body (HTML, санитизируется при показе).
+-- Одна методичка на навык (skills = {<id навыка>}). Загружается через «Данные → Добавить из файла»
+-- (materials в файле импорта); текст методичек в git не хранится.
+-- ============================================================================
+
+alter table public.materials add column if not exists body text not null default '';
+
+alter table public.materials drop constraint if exists materials_kind_check;
+alter table public.materials add constraint materials_kind_check
+  check (kind in ('test', 'practice', 'guide', 'vocab', 'theory', 'video', 'other'));

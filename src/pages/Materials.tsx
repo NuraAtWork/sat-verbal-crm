@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
+  BookMarked,
   ChevronRight,
   ClipboardList,
   ExternalLink,
@@ -20,6 +21,7 @@ import { ACTIVE_MATERIAL_KINDS, DOMAINS, MATERIAL_KIND_LABELS, SKILLS, safeUrl }
 import type { Material, MaterialKind } from '../types'
 import { CAN_EDIT_LIBRARY } from '../permissions'
 import { useStore } from '../useStore'
+import { difficultyOf, setNumber, sortSets, type Difficulty } from '../materials'
 
 /** Что сейчас открыто в форме: новый материал (с предвыбранным типом/навыком) или редактирование. */
 type Editing = { id?: string; kind: MaterialKind; skill?: string } | null
@@ -36,6 +38,16 @@ interface Folder {
 }
 
 const FOLDERS: Folder[] = [
+  {
+    id: 'guides',
+    title: MATERIAL_KIND_LABELS.guide,
+    addKind: 'guide',
+    match: (m) => m.kind === 'guide',
+    summary: (items) => {
+      const covered = SKILLS.filter((s) => items.some((m) => m.skills.includes(s.id))).length
+      return `${covered} из ${SKILLS.length} навыков`
+    },
+  },
   {
     id: 'questions',
     title: MATERIAL_KIND_LABELS.practice,
@@ -89,7 +101,7 @@ export function Materials() {
 }
 
 function FolderIcon({ id }: { id: string }) {
-  const Icon = id === 'questions' ? FileQuestion : id === 'tests' ? ClipboardList : FolderOpen
+  const Icon = id === 'guides' ? BookMarked : id === 'questions' ? FileQuestion : id === 'tests' ? ClipboardList : FolderOpen
   return (
     <span className="folder-icon" aria-hidden="true">
       <Icon size={20} />
@@ -127,7 +139,7 @@ export function MaterialFolder() {
         <h1>
           {folder.title} <span className="muted h1-count">{items.length}</span>
         </h1>
-        {CAN_EDIT_LIBRARY && addKind && !editing && (
+        {CAN_EDIT_LIBRARY && addKind && addKind !== 'guide' && !editing && (
           <div className="row">
             {folder.id === 'questions' && sync.mode === 'cloud' && (
               <Link className="btn btn-primary" to="/sets/new">
@@ -153,7 +165,9 @@ export function MaterialFolder() {
         />
       )}
 
-      {folder.id === 'questions' ? (
+      {folder.id === 'guides' ? (
+        <GuideRows items={items} />
+      ) : folder.id === 'questions' ? (
         <>
           <div className="qlegend muted small">
             Номер — это сет, полоска снизу — преобладающая сложность:
@@ -191,40 +205,6 @@ function ItemActions({ m, onEdit, onRemove }: { m: Material; onEdit: (m: Materia
   )
 }
 
-interface Difficulty {
-  counts: Record<'Easy' | 'Medium' | 'Hard', number>
-  total: number
-  /** Преобладающая сложность для цветной полоски */
-  main: 'easy' | 'medium' | 'hard' | 'none'
-}
-
-/** Разбирает «25 вопросов · 15 Easy, 10 Medium» из заметок сета. */
-function difficultyOf(notes: string): Difficulty {
-  const counts = { Easy: 0, Medium: 0, Hard: 0 }
-  for (const m of notes.matchAll(/(\d+)\s+(Easy|Medium|Hard)/g)) {
-    counts[m[2] as keyof typeof counts] += Number(m[1])
-  }
-  const total = counts.Easy + counts.Medium + counts.Hard
-  const order = ['Hard', 'Medium', 'Easy'] as const
-  const top = total ? order.reduce((best, k) => (counts[k] > counts[best] ? k : best), order[0]) : null
-  return { counts, total, main: top ? (top.toLowerCase() as Difficulty['main']) : 'none' }
-}
-
-/** «Boundaries — Set 7» → 7; без номера в названии — null. */
-function setNumber(title: string): number | null {
-  const m = title.match(/(?:set|сет)\s*(\d+)/i)
-  return m ? Number(m[1]) : null
-}
-
-/** Сначала сеты с номерами по порядку, потом остальные материалы по названию. */
-function sortSets(sets: Material[]): Material[] {
-  return [...sets].sort((a, b) => {
-    const na = setNumber(a.title) ?? Infinity
-    const nb = setNumber(b.title) ?? Infinity
-    return na - nb || a.title.localeCompare(b.title, 'ru', { numeric: true })
-  })
-}
-
 function DiffBar({ d }: { d: Difficulty }) {
   if (!d.total) return null
   const label = (['Easy', 'Medium', 'Hard'] as const)
@@ -237,6 +217,40 @@ function DiffBar({ d }: { d: Difficulty }) {
       {d.counts.Medium > 0 && <span className="lvl-medium" style={{ flex: d.counts.Medium }} />}
       {d.counts.Hard > 0 && <span className="lvl-hard" style={{ flex: d.counts.Hard }} />}
     </span>
+  )
+}
+
+/** Методички: по строке на навык; навыки без методички — «готовится». */
+function GuideRows({ items }: { items: Material[] }) {
+  return (
+    <>
+      <p className="muted guide-intro">
+        Как объяснять каждый навык: формат вопроса, правила, ловушки, план мини-урока и что дать ученику после.
+        Методички пополняются.
+      </p>
+      <div className="card qrows">
+        {DOMAINS.map((d) => (
+          <section key={d.id} className={`qgroup qgroup-${d.id}`}>
+            <div className="qdomain">{d.name}</div>
+            {d.skills.map((s) => {
+              const g = items.find((m) => m.skills.includes(s.id))
+              return g ? (
+                <Link key={s.id} to={`/materials/guides/${g.id}`} className="guide-row">
+                  <span className="qrow-name">{s.name}</span>
+                  <span className="guide-row-note">{g.notes}</span>
+                  <ChevronRight size={16} className="folder-chevron" aria-hidden="true" />
+                </Link>
+              ) : (
+                <div key={s.id} className="guide-row is-empty">
+                  <span className="qrow-name">{s.name}</span>
+                  <span className="guide-row-note">готовится</span>
+                </div>
+              )
+            })}
+          </section>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -437,7 +451,9 @@ function MaterialForm({
   }, [])
 
   const urlInvalid = url.trim() !== '' && safeUrl(url) === null
-  const kindOptions = ACTIVE_MATERIAL_KINDS.includes(kind) ? ACTIVE_MATERIAL_KINDS : [...ACTIVE_MATERIAL_KINDS, kind]
+  // методички правятся файлом импорта, а не этой формой
+  const formKinds: MaterialKind[] = ACTIVE_MATERIAL_KINDS.filter((k) => k !== 'guide')
+  const kindOptions = formKinds.includes(kind) ? formKinds : [...formKinds, kind]
 
   const toggle = (id: string) =>
     setSkills((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))

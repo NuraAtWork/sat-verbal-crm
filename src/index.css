@@ -1559,3 +1559,274 @@ tr.clickable:hover td {
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
+
+/* ---------- Методички ---------- */
+
+.folder-guides .folder-icon {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.guide-intro {
+  margin: -4px 0 14px;
+  max-width: 70ch;
+}
+
+.guide-row {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 20px;
+  color: var(--text);
+}
+
+a.guide-row:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.guide-row-note {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.guide-row.is-empty .qrow-name,
+.guide-row.is-empty .guide-row-note {
+  color: var(--faint);
+}
+
+.guide-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: -6px 0 18px;
+  max-width: 80ch;
+}
+
+.guide-domain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--grey-soft);
+  color: var(--text-2);
+}
+
+.guide-domain::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--faint);
+}
+
+.guide-domain-craft::before {
+  background: var(--accent);
+}
+
+.guide-domain-info::before {
+  background: var(--ok);
+}
+
+.guide-domain-conventions::before {
+  background: var(--warn);
+}
+
+.guide-domain-expression::before {
+  background: var(--purple);
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+.guide-aside {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.guide-aside h2 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+.guide-toc ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-toc .link-btn {
+  text-align: left;
+  font-size: 13px;
+}
+
+.guide-give .qrow-sets {
+  margin: 8px 0 4px;
+}
+
+.guide-give a.set-pill {
+  text-decoration: none;
+}
+
+.guide-trainer {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.guide-body {
+  padding: 8px 32px 28px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+
+.guide-body > * {
+  max-width: 74ch;
+}
+
+.guide-body h2 {
+  margin: 28px 0 8px;
+  font-size: 18px;
+  color: var(--text);
+  scroll-margin-top: 16px;
+}
+
+.guide-body h3 {
+  margin: 20px 0 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.guide-body p {
+  margin: 0 0 10px;
+}
+
+.guide-body ul,
+.guide-body ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.guide-body li + li {
+  margin-top: 4px;
+}
+
+.guide-body strong {
+  color: var(--text);
+}
+
+/* Пример предложения на английском */
+.guide-body blockquote {
+  margin: 8px 0 12px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--text);
+}
+
+.guide-body blockquote p {
+  margin: 0;
+}
+
+.guide-body blockquote p + p {
+  margin-top: 4px;
+}
+
+/* Подсказка и ловушка */
+.guide-body .tip,
+.guide-body .trap {
+  margin: 10px 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+}
+
+.guide-body .tip {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.guide-body .trap {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+
+.guide-body .tip strong,
+.guide-body .trap strong {
+  color: inherit;
+}
+
+.guide-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0 14px;
+  font-size: 13.5px;
+}
+
+.guide-body th,
+.guide-body td {
+  text-align: left;
+  vertical-align: top;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.guide-body th {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--surface-2);
+}
+
+.guide-body .ok {
+  color: var(--ok-ink);
+  font-weight: 600;
+}
+
+.guide-body .no {
+  color: var(--danger-ink);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .guide-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-aside {
+    position: static;
+    order: -1;
+  }
+
+  .guide-toc {
+    display: none;
+  }
+
+  .guide-row {
+    grid-template-columns: minmax(0, 1fr) 16px;
+  }
+
+  .guide-row .guide-row-note {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .guide-body {
+    padding: 4px 18px 20px;
+  }
+}

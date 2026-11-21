@@ -79,7 +79,6 @@ export function demoDb(): Db {
 
   return {
     version: 1,
-    lessonTemplates: [],
     materials: [
       material({
         title: 'SAT Suite Question Bank — Words in Context',
