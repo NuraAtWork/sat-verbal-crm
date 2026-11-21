@@ -2,14 +2,16 @@
 
 Запуск: python tools/extract_vocab.py <файл импорта из tools/parse_sets.py> <выходной json>
 
-Берёт сеты с навыком words-in-context. Из каждого вопроса с пропуском в тексте получается:
-  - верный вариант -> слово с контекстом {text с ____, answer, distractors: остальные три варианта};
-  - неверные варианты -> слова без контекста (их тоже стоит знать).
-Вопросы без пропуска («as used in the text, what does X most nearly mean») пропускаются.
+Берёт сеты с навыком words-in-context. Из каждого вопроса с пропуском в тексте берутся все четыре варианта
+ответа как слова (верные — выше в порядке введения). Вопросы без пропуска («as used in the text, what does X
+most nearly mean») пропускаются.
+
+Тексты вопросов в контексты НЕ попадают: иначе тренер показывает ученику те же отрывки с теми же вариантами,
+что потом будут в домашних сетах. Контексты (свои предложения с ____, дистракторы, note) пишутся отдельно.
 
 Выход: {..., vocabWords: [{id, word, pos, definition, translation, connotation, contexts, confusables,
 deck, rank, forms}]} — формат «Данные → Добавить из файла». Поля definition / translation / pos / connotation /
-confusables здесь ПУСТЫЕ: их нужно заполнить перед импортом (слова без definition импорт пропускает).
+confusables / contexts здесь ПУСТЫЕ: их нужно заполнить перед импортом (слова без definition импорт пропускает).
 В поле word — форма из вопроса (например corroborates); при заполнении её стоит привести к начальной
 (corroborate), а форму из вопроса оставить в contexts[].answer и в forms: по forms (нижний регистр)
 сервер узнаёт слово в вариантах ответа — так слова из ошибок ученика попадают в его очередь.
@@ -60,7 +62,7 @@ def main(src_path, out_path):
     def entry(word):
         key = word.lower()
         if key not in words:
-            words[key] = {'word': key, 'contexts': [], 'seen': 0}
+            words[key] = {'word': key, 'answered': 0, 'seen': 0}
             order.append(key)
         words[key]['seen'] += 1
         return words[key]
@@ -76,13 +78,13 @@ def main(src_path, out_path):
                 skipped += 1
                 continue
             used += 1
-            wrong = [c for letter, c in choices.items() if letter != answer]
-            entry(right)['contexts'].append({'text': stimulus, 'answer': right, 'distractors': wrong})
-            for c in wrong:
-                entry(c)
+            entry(right)['answered'] += 1
+            for letter, c in choices.items():
+                if letter != answer:
+                    entry(c)
 
-    # сначала слова с контекстами, внутри — чаще встречающиеся
-    ranked = sorted(order, key=lambda k: (not words[k]['contexts'], -words[k]['seen'], k))
+    # сначала слова, бывшие верным ответом, внутри — чаще встречающиеся
+    ranked = sorted(order, key=lambda k: (not words[k]['answered'], -words[k]['seen'], k))
     vocab = [{
         'id': str(uuid.uuid5(uuid.NAMESPACE_URL, f'vocab:{k}')),
         'word': words[k]['word'],
@@ -90,7 +92,7 @@ def main(src_path, out_path):
         'definition': '',
         'translation': '',
         'connotation': '',
-        'contexts': words[k]['contexts'],
+        'contexts': [],
         'confusables': [],
         'deck': DECK,
         'rank': i + 1,
@@ -100,10 +102,10 @@ def main(src_path, out_path):
     out = {'version': 1, 'students': [], 'lessons': [], 'scores': [], 'materials': [], 'vocabWords': vocab}
     json.dump(out, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 
-    with_ctx = sum(1 for w in vocab if w['contexts'])
+    answered = sum(1 for k in ranked if words[k]['answered'])
     print(f'сетов Words in Context: {len(sets)}; вопросов использовано: {used}, пропущено: {skipped}')
-    print(f'слов: {len(vocab)} (с контекстом: {with_ctx}, только как вариант: {len(vocab) - with_ctx})')
-    print('Заполните definition / translation перед импортом — слова без definition пропускаются.')
+    print(f'слов: {len(vocab)} (верным ответом: {answered}, только как вариант: {len(vocab) - answered})')
+    print('Заполните definition / translation и напишите свои contexts перед импортом — слова без definition пропускаются.')
 
 
 if __name__ == '__main__':
