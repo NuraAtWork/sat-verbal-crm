@@ -1,0 +1,219 @@
+/* ===== Тренер грамматики: страница ученика (всегда светлая, внутри .solve; основа — vocab.css) ===== */
+
+.gr-rule {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gr-rule > * {
+  margin: 0;
+}
+
+.gr-rule-title {
+  margin: 0;
+  color: #111318;
+}
+
+h3.gr-rule-title {
+  font-size: 16px;
+  margin-top: 6px;
+}
+
+.gr-summary {
+  font-size: 16px;
+  font-weight: 550;
+  color: #111318;
+}
+
+.gr-body {
+  color: #3c3f4a;
+  line-height: 1.55;
+}
+
+.gr-mark {
+  color: #4646b8;
+  font-weight: 700;
+  background: #eeeefd;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.gr-examples {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gr-examples li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e6e6eb;
+  background: #fcfcfd;
+}
+
+.gr-ex-ok {
+  border-color: #bfe3cf !important;
+  background: #f1faf5 !important;
+}
+
+.gr-ex-bad {
+  border-color: #f2c6c6 !important;
+  background: #fef5f5 !important;
+}
+
+.gr-ex-mark {
+  flex: none;
+  font-weight: 700;
+  width: 16px;
+}
+
+.gr-ex-ok .gr-ex-mark {
+  color: #1a7a4f;
+}
+
+.gr-ex-bad .gr-ex-mark {
+  color: #b42f2f;
+}
+
+.gr-ex-text {
+  display: block;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: #111318;
+}
+
+.gr-ex-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: #6e7180;
+}
+
+.gr-tip {
+  padding: 10px 12px;
+  border-left: 3px solid #5b5bd6;
+  background: #f6f6fe;
+  border-radius: 0 8px 8px 0;
+  color: #3c3f4a;
+  font-size: 14px;
+}
+
+.gr-cue {
+  color: #4646b8;
+}
+
+.gr-text {
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.gr-fill {
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+.gr-fill-ok {
+  color: #1a7a4f;
+  background: #e7f6ee;
+}
+
+.gr-fill-bad {
+  color: #b42f2f;
+  background: #fdecec;
+}
+
+.gr-step {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gr-step-q {
+  margin: 4px 0 0;
+  font-weight: 600;
+  color: #111318;
+}
+
+.gr-step-note {
+  margin: 0;
+}
+
+.gr-opt-text {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16.5px;
+  white-space: pre-wrap;
+}
+
+.gr-opt-struct .vt-opt-body {
+  font-size: 14.5px;
+}
+
+.gr-fb-rule {
+  color: #111318;
+}
+
+.gr-fb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gr-fb-actions .sbtn {
+  margin-top: 0 !important;
+}
+
+.gr-feedback-rule {
+  align-self: stretch;
+}
+
+/* ===== Блок «Грамматика» в карточке ученика (CRM, обе темы) ===== */
+
+.gm-rules {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 10px 0 14px;
+  font-size: 14px;
+}
+
+.gm-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.gm-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--border, #e4e6ee);
+}
+
+.gm-dots i.on {
+  background: var(--accent, #5b5bd6);
+}
+
+.gm-traps {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 12px;
+  font-size: 14px;
+}
+
+.gm-traps li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--border, #e4e6ee);
+}

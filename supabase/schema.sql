@@ -1548,6 +1548,402 @@ create policy "lesson_templates: own rows" on public.lesson_templates
   with check (owner_id = (select auth.uid()));
 
 -- ============================================================================
+-- Тренер грамматики (Standard English Conventions; первый навык — Boundaries)
+-- ----------------------------------------------------------------------------
+-- Единица тренировки — ПРАВИЛО (а не отдельный вопрос): карточка с объяснением, примерами и
+-- ловушками плюс набор своих упражнений (items) в формате SAT: предложение с пропуском и 4 варианта.
+-- grammar_rules — правила репетитора: skill ('boundaries', позже 'form-structure-sense',
+--   'transitions'), теория, примеры, упражнения (jsonb). Тексты упражнений — свои, не из банка.
+-- grammar_enrollments — «подписка» ученика: постоянная ссылка #/grammar/<token> без входа.
+-- grammar_progress — состояние правила у ученика: ступень (1–7) и дата следующего показа.
+-- grammar_reviews — журнал ответов: какое упражнение, верно ли, в какую ловушку попал (trap),
+--   верно ли определил структуру («что слева и справа от пропуска»).
+-- Ученик работает только через grammar_session / grammar_review по токену. Это тренировка, а не
+-- контроль: упражнения уходят вместе с ответами, проверка в браузере, расписание считает сервер.
+-- Ступени и интервалы — как у словаря (1 / 3 / 7 / 16 / 35 / 70 дней; ошибка — до 1, с 4-й — на две
+-- ступени вниз). Правило продублировано в nextStage (src/grammar.ts) и grammar_review.
+-- За 2 дня до экзамена и в день экзамена новые правила не вводятся (EXAM_QUIET_DAYS, src/vocab.ts).
+-- ============================================================================
+
+create table if not exists public.grammar_rules (
+  id          uuid primary key,
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  -- навык цифрового SAT: 'boundaries' / 'form-structure-sense' / 'transitions'
+  skill       text not null default 'boundaries',
+  -- название правила по-русски
+  title       text not null,
+  -- одна строка: суть правила
+  summary     text not null default '',
+  -- объяснение (абзацы через пустую строку)
+  body        text not null default '',
+  -- [{text: 'предложение', ok: true|false, note?: 'почему'}]
+  examples    jsonb not null default '[]'::jsonb check (jsonb_typeof(examples) = 'array'),
+  -- быстрая проверка («закрой правую часть рукой…»)
+  tip         text not null default '',
+  -- [{id, text: 'с ____', options: [{text, why, trap?}], answer: 0..3, structure?, level: 1..3, note?}]
+  items       jsonb not null default '[]'::jsonb check (jsonb_typeof(items) = 'array'),
+  -- порядок введения (меньше — раньше)
+  rank        integer not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists grammar_rules_owner_idx on public.grammar_rules (owner_id);
+
+drop trigger if exists grammar_rules_touch on public.grammar_rules;
+create trigger grammar_rules_touch before update on public.grammar_rules
+  for each row execute function public.touch_updated_at();
+
+create table if not exists public.grammar_enrollments (
+  id           uuid primary key default gen_random_uuid(),
+  owner_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  student_id   uuid not null unique references public.students (id) on delete cascade,
+  token        text not null unique
+               default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
+  -- новых правил в день
+  new_per_day  integer not null default 2 check (new_per_day between 0 and 10),
+  -- навыки ученика; пусто — все правила репетитора
+  skills       text[] not null default '{}',
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists grammar_enrollments_owner_idx on public.grammar_enrollments (owner_id);
+
+create table if not exists public.grammar_progress (
+  student_id        uuid not null references public.students (id) on delete cascade,
+  rule_id           uuid not null references public.grammar_rules (id) on delete cascade,
+  owner_id          uuid not null references auth.users (id) on delete cascade,
+  stage             smallint not null default 1 check (stage between 1 and 7),
+  due_at            timestamptz not null default now(),
+  reps              integer not null default 0,
+  lapses            integer not null default 0,
+  introduced_at     timestamptz not null default now(),
+  last_reviewed_at  timestamptz,
+  primary key (student_id, rule_id)
+);
+
+create index if not exists grammar_progress_due_idx on public.grammar_progress (student_id, due_at);
+create index if not exists grammar_progress_owner_idx on public.grammar_progress (owner_id);
+
+create table if not exists public.grammar_reviews (
+  id            bigint generated always as identity primary key,
+  owner_id      uuid not null references auth.users (id) on delete cascade,
+  student_id    uuid not null references public.students (id) on delete cascade,
+  rule_id       uuid not null references public.grammar_rules (id) on delete cascade,
+  -- id упражнения внутри правила ('' — карточка правила)
+  item_id       text not null default '',
+  -- intro — карточка правила; warmup — разминка после карточки (ступень не меняет);
+  -- cued — упражнение с подписанным правилом; sat — без подсказки, как на экзамене
+  exercise      text not null,
+  correct       boolean not null,
+  -- метка ловушки выбранного неверного варианта (comma-splice, fragment, …)
+  trap          text,
+  -- шаг «что слева и справа от пропуска»: null — шага не было
+  structure_ok  boolean,
+  ms            integer not null default 0,
+  stage_before  smallint not null default 0,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists grammar_reviews_student_idx on public.grammar_reviews (student_id, created_at);
+create index if not exists grammar_reviews_owner_idx on public.grammar_reviews (owner_id);
+
+alter table public.grammar_rules       enable row level security;
+alter table public.grammar_enrollments enable row level security;
+alter table public.grammar_progress    enable row level security;
+alter table public.grammar_reviews     enable row level security;
+
+revoke all on public.grammar_rules, public.grammar_enrollments, public.grammar_progress, public.grammar_reviews from anon;
+grant select, insert, update, delete on public.grammar_rules, public.grammar_enrollments to authenticated;
+-- прогресс и журнал пишет только сервер (grammar_review); репетитор читает и может сбросить
+revoke all on public.grammar_progress, public.grammar_reviews from authenticated;
+grant select, delete on public.grammar_progress, public.grammar_reviews to authenticated;
+
+drop policy if exists "grammar_rules: own rows" on public.grammar_rules;
+create policy "grammar_rules: own rows" on public.grammar_rules
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "grammar_enrollments: own rows" on public.grammar_enrollments;
+create policy "grammar_enrollments: own rows" on public.grammar_enrollments
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and exists (select 1 from public.students s where s.id = student_id and s.owner_id = (select auth.uid()))
+  );
+
+drop policy if exists "grammar_progress: own rows" on public.grammar_progress;
+create policy "grammar_progress: own rows" on public.grammar_progress
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+drop policy if exists "grammar_reviews: own rows" on public.grammar_reviews;
+create policy "grammar_reviews: own rows" on public.grammar_reviews
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+-- Сессия ученика: правила к повторению (с последними показанными упражнениями, чтобы не повторяться)
+-- и новые правила на сегодня. p_day_start — начало «сегодня» по часам ученика.
+create or replace function public.grammar_session(p_token text, p_day_start timestamptz)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  e public.grammar_enrollments;
+  v_day timestamptz;
+  v_student text;
+  v_exam date;
+  v_local date;
+  v_introduced integer;
+  v_new_left integer;
+  v_total integer;
+  v_started integer;
+  v_known integer;
+  v_today integer;
+  v_streak integer;
+  v_due jsonb;
+  v_fresh jsonb;
+begin
+  select * into e from public.grammar_enrollments where token = p_token;
+  if not found then
+    return null;
+  end if;
+  v_day := least(now(), greatest(coalesce(p_day_start, now() - interval '24 hours'), now() - interval '24 hours'));
+  select split_part(trim(name), ' ', 1), exam_date into v_student, v_exam
+    from public.students where id = e.student_id;
+
+  select count(*) into v_introduced
+    from public.grammar_progress p
+   where p.student_id = e.student_id and p.introduced_at >= v_day;
+  v_new_left := greatest(0, e.new_per_day - v_introduced);
+  -- местная дата ученика; перед экзаменом — только повторение (как в vocab_session)
+  v_local := ((v_day + interval '11 hours') at time zone 'UTC')::date;
+  if v_exam is not null and v_local between v_exam - 2 and v_exam then
+    v_new_left := 0;
+  end if;
+
+  select coalesce(jsonb_agg(x.j order by x.due_at), '[]'::jsonb) into v_due
+    from (
+      select (to_jsonb(r) - 'owner_id' - 'created_at' - 'updated_at')
+             || jsonb_build_object(
+                  'stage', p.stage, 'reps', p.reps,
+                  -- последние показанные упражнения правила, свежие первыми
+                  'recent', (
+                    select coalesce(jsonb_agg(t.item_id order by t.at desc), '[]'::jsonb)
+                      from (
+                        select gr.item_id, max(gr.created_at) as at
+                          from public.grammar_reviews gr
+                         where gr.student_id = e.student_id and gr.rule_id = r.id and gr.item_id <> ''
+                         group by gr.item_id
+                         order by 2 desc
+                         limit 40
+                      ) t
+                  )
+                ) as j,
+             p.due_at
+        from public.grammar_progress p
+        join public.grammar_rules r on r.id = p.rule_id
+       where p.student_id = e.student_id and p.due_at <= now()
+         and (cardinality(e.skills) = 0 or r.skill = any (e.skills))
+       order by p.due_at
+       limit 40
+    ) x;
+
+  select coalesce(jsonb_agg(x.j order by x.rank, x.title), '[]'::jsonb) into v_fresh
+    from (
+      select to_jsonb(r) - 'owner_id' - 'created_at' - 'updated_at' as j, r.rank, r.title
+        from public.grammar_rules r
+       where r.owner_id = e.owner_id
+         and (cardinality(e.skills) = 0 or r.skill = any (e.skills))
+         and not exists (
+           select 1 from public.grammar_progress p where p.student_id = e.student_id and p.rule_id = r.id
+         )
+       order by r.rank, r.title
+       limit v_new_left
+    ) x;
+
+  select count(*) into v_total
+    from public.grammar_rules r
+   where r.owner_id = e.owner_id and (cardinality(e.skills) = 0 or r.skill = any (e.skills));
+  select count(*), count(*) filter (where p.stage >= 5) into v_started, v_known
+    from public.grammar_progress p where p.student_id = e.student_id;
+  select count(*) into v_today
+    from public.grammar_reviews r
+   where r.student_id = e.student_id and r.created_at >= v_day and r.exercise <> 'intro';
+
+  -- серия: сколько дней подряд (заканчивая сегодня или вчера) были ответы
+  with days as (
+    select distinct floor(extract(epoch from (r.created_at - v_day)) / 86400)::integer as d
+      from public.grammar_reviews r
+     where r.student_id = e.student_id and r.created_at > v_day - interval '200 days'
+  ), runs as (
+    select d, d + row_number() over (order by d desc) as grp from days
+  )
+  select count(*) into v_streak
+    from runs
+   where grp = (select grp from runs order by d desc limit 1)
+     and (select max(d) from days) >= -1;
+
+  return jsonb_build_object(
+    'student', v_student,
+    'new_per_day', e.new_per_day,
+    'due', v_due,
+    'fresh', v_fresh,
+    'stats', jsonb_build_object(
+      'total', v_total, 'started', v_started, 'known', v_known,
+      'reviews_today', v_today, 'streak', v_streak
+    )
+  );
+end;
+$$;
+
+-- Ответ ученика. Первый вызов для правила (или exercise = 'intro') заводит прогресс на ступени 1;
+-- дальше верный ответ поднимает ступень и откладывает показ, ошибка — опускает и ставит на сейчас.
+create or replace function public.grammar_review(
+  p_token text, p_rule_id uuid, p_item_id text, p_exercise text, p_correct boolean,
+  p_trap text, p_structure_ok boolean, p_ms integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  e public.grammar_enrollments;
+  p public.grammar_progress;
+  v_days integer[] := array[0, 1, 3, 7, 16, 35, 70];
+  v_exercise text;
+  v_before smallint;
+  v_stage smallint;
+  v_due timestamptz;
+  v_new boolean := false;
+begin
+  select * into e from public.grammar_enrollments where token = p_token;
+  if not found then
+    raise exception 'enrollment not found';
+  end if;
+  if not exists (select 1 from public.grammar_rules r where r.id = p_rule_id and r.owner_id = e.owner_id) then
+    raise exception 'rule not found';
+  end if;
+  v_exercise := case when p_exercise in ('intro', 'warmup', 'cued', 'sat') then p_exercise else 'other' end;
+
+  insert into public.grammar_progress (student_id, rule_id, owner_id)
+  values (e.student_id, p_rule_id, e.owner_id)
+  on conflict do nothing;
+  v_new := found;
+  select * into p from public.grammar_progress
+   where student_id = e.student_id and rule_id = p_rule_id for update;
+
+  if v_new or v_exercise = 'intro' then
+    v_before := case when v_new then 0 else p.stage end;
+    v_exercise := 'intro';
+  elsif v_exercise = 'warmup' then
+    -- разминка сразу после карточки правила: ответ пишется в журнал, ступень не меняется
+    v_before := p.stage;
+  else
+    v_before := p.stage;
+    if coalesce(p_correct, false) then
+      v_stage := least(7, p.stage + 1);
+      v_due := now() + make_interval(days => v_days[v_stage]) - interval '6 hours';
+    else
+      v_stage := case when p.stage <= 3 then 1 else p.stage - 2 end;
+      v_due := now();
+    end if;
+    update public.grammar_progress
+       set stage = v_stage,
+           due_at = v_due,
+           reps = reps + 1,
+           lapses = lapses + case when coalesce(p_correct, false) then 0 else 1 end,
+           last_reviewed_at = now()
+     where student_id = e.student_id and rule_id = p_rule_id
+    returning * into p;
+  end if;
+
+  insert into public.grammar_reviews (
+    owner_id, student_id, rule_id, item_id, exercise, correct, trap, structure_ok, ms, stage_before
+  )
+  values (
+    e.owner_id, e.student_id, p_rule_id, left(coalesce(p_item_id, ''), 40), v_exercise,
+    v_exercise = 'intro' or coalesce(p_correct, false),
+    case when v_exercise = 'intro' or coalesce(p_correct, false) then null else nullif(left(trim(p_trap), 40), '') end,
+    case when v_exercise = 'intro' then null else p_structure_ok end,
+    greatest(0, least(coalesce(p_ms, 0), 600000)), v_before
+  );
+
+  return jsonb_build_object('stage', p.stage, 'due_at', p.due_at);
+end;
+$$;
+
+-- Статистика грамматики ученика для репетитора (под RLS: видны только свои строки).
+create or replace function public.grammar_stats(p_student_id uuid, p_tz text)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'rules_total', (select count(*) from public.grammar_rules),
+    'started', (select count(*) from public.grammar_progress p where p.student_id = p_student_id),
+    'known', (select count(*) from public.grammar_progress p where p.student_id = p_student_id and p.stage >= 5),
+    'due', (select count(*) from public.grammar_progress p where p.student_id = p_student_id and p.due_at <= now()),
+    'last_reviewed_at', (select max(r.created_at) from public.grammar_reviews r where r.student_id = p_student_id),
+    'days', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'day', t.d, 'reviews', t.n, 'correct', t.c, 'intro', t.i, 'ms', t.ms) order by t.d), '[]'::jsonb)
+        from (
+          select (r.created_at at time zone p_tz)::date as d,
+                 count(*) filter (where r.exercise <> 'intro') as n,
+                 count(*) filter (where r.exercise <> 'intro' and r.correct) as c,
+                 count(*) filter (where r.exercise = 'intro') as i,
+                 coalesce(sum(r.ms), 0) as ms
+            from public.grammar_reviews r
+           where r.student_id = p_student_id and r.created_at > now() - interval '15 days'
+           group by 1
+        ) t
+    ),
+    -- все правила по порядку: начатые — со ступенью и датой показа
+    'rules', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'id', r.id, 'skill', r.skill, 'title', r.title,
+               'stage', p.stage, 'due_at', p.due_at, 'lapses', p.lapses, 'reps', p.reps)
+               order by r.skill, r.rank, r.title), '[]'::jsonb)
+        from public.grammar_rules r
+        left join public.grammar_progress p on p.rule_id = r.id and p.student_id = p_student_id
+    ),
+    -- ловушки, в которые ученик попадал за 30 дней
+    'traps', (
+      select coalesce(jsonb_agg(jsonb_build_object('trap', t.trap, 'n', t.n) order by t.n desc, t.trap), '[]'::jsonb)
+        from (
+          select r.trap, count(*) as n
+            from public.grammar_reviews r
+           where r.student_id = p_student_id and r.trap is not null and r.created_at > now() - interval '30 days'
+           group by r.trap
+        ) t
+    ),
+    -- шаг «что слева и справа»: сколько раз был и сколько раз верно (30 дней)
+    'structure', (
+      select jsonb_build_object('total', count(*), 'correct', count(*) filter (where r.structure_ok))
+        from public.grammar_reviews r
+       where r.student_id = p_student_id and r.structure_ok is not null and r.created_at > now() - interval '30 days'
+    )
+  );
+$$;
+
+revoke all on function public.grammar_session(text, timestamptz) from public;
+revoke all on function public.grammar_review(text, uuid, text, text, boolean, text, boolean, integer) from public;
+revoke all on function public.grammar_stats(uuid, text) from public;
+grant execute on function public.grammar_session(text, timestamptz) to anon, authenticated;
+grant execute on function public.grammar_review(text, uuid, text, text, boolean, text, boolean, integer) to anon, authenticated;
+grant execute on function public.grammar_stats(uuid, text) to authenticated;
+
+-- ============================================================================
 -- Кабинет ученика
 -- ----------------------------------------------------------------------------
 -- Постоянная ссылка #/me/<token> без входа: ученик видит свои задания (и переходит к ним), последний
@@ -1595,6 +1991,8 @@ declare
   e public.vocab_enrollments;
   v_day timestamptz;
   v_vocab jsonb;
+  v_grammar jsonb;
+  v_grammar_token text;
 begin
   select * into p from public.student_portals where token = p_token;
   if not found then
@@ -1612,6 +2010,22 @@ begin
       'known', (select count(*) from public.vocab_progress vp where vp.student_id = s.id and vp.stage >= 5),
       'reviews_today', (
         select count(*) from public.vocab_reviews r
+         where r.student_id = s.id and r.created_at >= v_day and r.exercise <> 'intro'
+      )
+    );
+  end if;
+
+  -- тренер грамматики (блок «Тренер грамматики» выше)
+  select g.token into v_grammar_token from public.grammar_enrollments g where g.student_id = s.id;
+  if v_grammar_token is not null then
+    v_grammar := jsonb_build_object(
+      'token', v_grammar_token,
+      'due', (select count(*) from public.grammar_progress gp where gp.student_id = s.id and gp.due_at <= now()),
+      'started', (select count(*) from public.grammar_progress gp where gp.student_id = s.id),
+      'known', (select count(*) from public.grammar_progress gp where gp.student_id = s.id and gp.stage >= 5),
+      'total', (select count(*) from public.grammar_rules gr where gr.owner_id = s.owner_id),
+      'reviews_today', (
+        select count(*) from public.grammar_reviews r
          where r.student_id = s.id and r.created_at >= v_day and r.exercise <> 'intro'
       )
     );
@@ -1713,7 +2127,8 @@ begin
         from public.scores sc
        where sc.student_id = s.id
     ),
-    'vocab', v_vocab
+    'vocab', v_vocab,
+    'grammar', v_grammar
   );
 end;
 $$;

@@ -30,6 +30,18 @@ export interface PortalVocab {
   reviews_today: number
 }
 
+export interface PortalGrammar {
+  token: string
+  /** Правил ждут повторения */
+  due: number
+  started: number
+  known: number
+  /** Всего правил у репетитора */
+  total: number
+  /** Ответов в тренере за сегодня */
+  reviews_today: number
+}
+
 export interface PortalLesson {
   date: string
   duration_min: number
@@ -60,6 +72,8 @@ export interface PortalHome {
   scores: { date: string; source: string; score: number }[]
   /** null — тренер слов не включён */
   vocab: PortalVocab | null
+  /** null — тренер грамматики не включён (поля нет в старой версии student_home) */
+  grammar?: PortalGrammar | null
 }
 
 function check<T>(res: { data: T; error: { message: string } | null }): T {

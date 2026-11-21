@@ -8,6 +8,7 @@ import { PortalApp } from './portal/PortalApp.tsx'
 import { SolveApp } from './solve/SolveApp.tsx'
 import { StoreProvider } from './store.tsx'
 import { applyTheme, storedTheme } from './theme.ts'
+import { GrammarApp } from './grammar/GrammarApp.tsx'
 import { VocabApp } from './vocab/VocabApp.tsx'
 
 // Тема CRM: светлая по умолчанию, тёмная — по переключателю (страница ученика всегда светлая).
@@ -19,6 +20,9 @@ const solveToken = window.location.hash.match(SOLVE_RE)?.[1]
 // Тренер словаря (#/vocab/<token>) — постоянная ссылка ученика; #/vocab/demo — демо без облака.
 const VOCAB_RE = /^#\/vocab\/([0-9a-f]{64}|demo)\/?$/
 const vocabToken = window.location.hash.match(VOCAB_RE)?.[1]
+// Тренер грамматики (#/grammar/<token>) — постоянная ссылка ученика; #/grammar/demo — демо без облака.
+const GRAMMAR_RE = /^#\/grammar\/([0-9a-f]{64}|demo)\/?$/
+const grammarToken = window.location.hash.match(GRAMMAR_RE)?.[1]
 // Кабинет ученика (#/me/<token>) — постоянная ссылка на все его задания; #/me/demo — демо.
 // После токена может идти раздел кабинета: #/me/<token>/lessons.
 const PORTAL_RE = /^#\/me\/([0-9a-f]{64}|demo)(?:\/[a-z]*)?\/?$/
@@ -31,7 +35,8 @@ const onAddressChange = (e: Event) => {
   const next = window.location.hash.match(SOLVE_RE)?.[1]
   const nextVocab = window.location.hash.match(VOCAB_RE)?.[1]
   const nextPortal = window.location.hash.match(PORTAL_RE)?.[1]
-  if (next !== solveToken || nextVocab !== vocabToken || nextPortal !== portalToken) {
+  const nextGrammar = window.location.hash.match(GRAMMAR_RE)?.[1]
+  if (next !== solveToken || nextVocab !== vocabToken || nextPortal !== portalToken || nextGrammar !== grammarToken) {
     e.stopImmediatePropagation()
     window.location.reload()
   }
@@ -45,6 +50,8 @@ createRoot(document.getElementById('root')!).render(
       <SolveApp token={solveToken} />
     ) : vocabToken ? (
       <VocabApp token={vocabToken} />
+    ) : grammarToken ? (
+      <GrammarApp token={grammarToken} />
     ) : portalToken ? (
       <PortalApp token={portalToken} />
     ) : (

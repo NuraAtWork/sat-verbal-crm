@@ -82,5 +82,6 @@ export function demoHome(): PortalHome {
       { date: addDays(t, -12), source: 'Bluebook PT 3', score: 640 },
     ],
     vocab: { token: 'demo', due: 12, started: 86, known: 41, reviews_today: 0 },
+    grammar: { token: 'demo', due: 2, started: 5, known: 2, total: 12, reviews_today: 0 },
   }
 }
