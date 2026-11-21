@@ -176,6 +176,29 @@ h3.gr-rule-title {
   align-self: stretch;
 }
 
+/* Демо: перемотка и вид преподавателя (всегда светлые цвета, как вся страница ученика) */
+.gr-demo {
+  margin-top: 16px;
+  border-style: dashed;
+}
+
+.gr-demo-tutor {
+  align-self: stretch;
+  --border: #e6e6eb;
+  --accent: #5b5bd6;
+  --surface: #ffffff;
+  --surface-2: #f7f7f9;
+  --text: #111318;
+  --muted: #6e7180;
+}
+
+.gr-demo-tutor summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #4646b8;
+  margin-bottom: 10px;
+}
+
 /* ===== Блок «Грамматика» в карточке ученика (CRM, обе темы) ===== */
 
 .gm-rules {

@@ -15,7 +15,8 @@ import {
 } from '../grammar'
 import { plural } from '../vocab'
 import { PortalBack } from '../portal/PortalBack'
-import { grammarDemoBackend } from './demo'
+import { GrammarStatsView } from '../components/StudentGrammar'
+import { fastForwardGrammarDemo, grammarDemoBackend, grammarDemoStats, resetGrammarDemo } from './demo'
 import '../vocab/vocab.css'
 import './grammar.css'
 
@@ -281,7 +282,51 @@ function Grammar({ backend, demo }: { backend: GrammarBackend; demo: boolean }) 
           </p>
         )}
       </div>
+      {demo && <DemoPanel onChange={reload} />}
     </Shell>
+  )
+}
+
+/** Только в демо: перемотка времени и вид со стороны преподавателя. */
+function DemoPanel({ onChange }: { onChange: () => void }) {
+  const [stats] = useState(grammarDemoStats)
+  return (
+    <div className="solve-card vt-card gr-demo">
+      <p className="vt-label">Демо: как это работает на практике</p>
+      <p className="solve-muted">
+        Прогресс хранится только в этом браузере. В первый день правило подписано и идут лёгкие предложения. Через
+        несколько дней правило уже не называется: ученик сначала решает, что стоит слева и справа от пропуска, и
+        только потом выбирает знак. Чтобы не ждать неделю, перемотай время.
+      </p>
+      <div className="gr-fb-actions">
+        <button
+          className="sbtn sbtn-primary"
+          onClick={() => {
+            fastForwardGrammarDemo()
+            onChange()
+          }}
+        >
+          Перемотать: прошла неделя
+        </button>
+        <button
+          className="sbtn"
+          onClick={() => {
+            resetGrammarDemo()
+            onChange()
+          }}
+        >
+          Начать заново
+        </button>
+      </div>
+      <details className="gr-demo-tutor">
+        <summary>Глазами преподавателя — что видно в карточке ученика</summary>
+        {stats.started === 0 ? (
+          <p className="solve-muted">Пока пусто: пройди сессию или перемотай время — здесь появятся ступени, ошибки и активность.</p>
+        ) : (
+          <GrammarStatsView stats={stats} newPerDay={3} />
+        )}
+      </details>
+    </div>
   )
 }
 

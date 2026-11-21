@@ -137,16 +137,6 @@ export function StudentGrammar({ student }: { student: Student }) {
     }
   }
 
-  const byDay = new Map(stats.days.map((d) => [d.day, d]))
-  const days = lastDays().map((day) => byDay.get(day) ?? { day, reviews: 0, correct: 0, intro: 0, ms: 0 })
-  const max = Math.max(1, ...days.map((d) => d.reviews))
-  const reviews = days.reduce((a, d) => a + d.reviews, 0)
-  const correct = days.reduce((a, d) => a + d.correct, 0)
-  const activeDays = days.filter((d) => d.reviews > 0).length
-  const structurePct = stats.structure.total ? Math.round((stats.structure.correct / stats.structure.total) * 100) : null
-  const started = stats.rules.filter((r) => r.stage !== null)
-  const notStarted = stats.rules.length - started.length
-
   return (
     <div>
       <div className="inline-form">
@@ -180,89 +170,108 @@ export function StudentGrammar({ student }: { student: Student }) {
         <p className="muted small">Правил пока нет — загрузите их в «Данные → Добавить из файла» (grammarRules).</p>
       )}
 
-      <div className="stats vocab-stats">
-        <div className="stat">
-          <span className="stat-value">{stats.known}</span>
-          <span className="stat-label">Освоено</span>
-        </div>
-        <div className="stat">
-          <span className="stat-value">{stats.started - stats.known}</span>
-          <span className="stat-label">В работе</span>
-        </div>
-        <div className="stat">
-          <span className="stat-value">{stats.due}</span>
-          <span className="stat-label">Ждут повторения</span>
-        </div>
-        <div className="stat">
-          <span className="stat-value">{structurePct === null ? '—' : `${structurePct}%`}</span>
-          <span className="stat-label">Структура верно</span>
-        </div>
-      </div>
+      <GrammarStatsView stats={stats} newPerDay={enrollment.newPerDay} />
+    </div>
+  )
+}
 
-      {started.length > 0 && (
-        <div className="gm-rules">
-          {started.map((r) => (
-            <div key={r.id} style={{ display: 'contents' }}>
-              <span title={SKILL_TITLES[r.skill] ?? r.skill}>{r.title}</span>
-              <span className="gm-dots" title={`Ступень ${r.stage} из ${MAX_STAGE}`}>
-                {Array.from({ length: MAX_STAGE }, (_, i) => (
-                  <i key={i} className={i < (r.stage ?? 0) ? 'on' : ''} />
-                ))}
-              </span>
-              <span className="small muted">
-                {dueLabel(r.due_at)}
-                {r.lapses ? ` · ошибок ${r.lapses}` : ''}
-              </span>
+/** Прогресс ученика в тренере грамматики (карточка ученика и демо «глазами преподавателя»). */
+export function GrammarStatsView({ stats, newPerDay }: { stats: GrammarStats; newPerDay: number }) {
+  const byDay = new Map(stats.days.map((d) => [d.day, d]))
+  const days = lastDays().map((day) => byDay.get(day) ?? { day, reviews: 0, correct: 0, intro: 0, ms: 0 })
+  const max = Math.max(1, ...days.map((d) => d.reviews))
+  const reviews = days.reduce((a, d) => a + d.reviews, 0)
+  const correct = days.reduce((a, d) => a + d.correct, 0)
+  const activeDays = days.filter((d) => d.reviews > 0).length
+  const structurePct = stats.structure.total ? Math.round((stats.structure.correct / stats.structure.total) * 100) : null
+  const started = stats.rules.filter((r) => r.stage !== null)
+  const notStarted = stats.rules.length - started.length
+
+  return (
+    <>
+        <div className="stats vocab-stats">
+          <div className="stat">
+            <span className="stat-value">{stats.known}</span>
+            <span className="stat-label">Освоено</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{stats.started - stats.known}</span>
+            <span className="stat-label">В работе</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{stats.due}</span>
+            <span className="stat-label">Ждут повторения</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{structurePct === null ? '—' : `${structurePct}%`}</span>
+            <span className="stat-label">Структура верно</span>
+          </div>
+        </div>
+
+        {started.length > 0 && (
+          <div className="gm-rules">
+            {started.map((r) => (
+              <div key={r.id} style={{ display: 'contents' }}>
+                <span title={SKILL_TITLES[r.skill] ?? r.skill}>{r.title}</span>
+                <span className="gm-dots" title={`Ступень ${r.stage} из ${MAX_STAGE}`}>
+                  {Array.from({ length: MAX_STAGE }, (_, i) => (
+                    <i key={i} className={i < (r.stage ?? 0) ? 'on' : ''} />
+                  ))}
+                </span>
+                <span className="small muted">
+                  {dueLabel(r.due_at)}
+                  {r.lapses ? ` · ошибок ${r.lapses}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {notStarted > 0 && (
+          <p className="small muted">
+            Ещё не начато: {notStarted} {plural(notStarted, 'правило', 'правила', 'правил')} — войдут по {newPerDay} в день.
+          </p>
+        )}
+
+        {stats.traps.length > 0 && (
+          <div>
+            <div className="small muted">На чём ошибается (30 дней)</div>
+            <ul className="gm-traps">
+              {stats.traps.slice(0, 6).map((t) => (
+                <li key={t.trap}>
+                  <span>{trapLabel(t.trap)}</span>
+                  <b>{t.n}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="vocab-days" aria-label={`Ответы по дням за ${DAYS} дней`}>
+          {days.map((d) => (
+            <div
+              key={d.day}
+              className={`vocab-day ${d.reviews ? '' : 'vocab-day-empty'}`}
+              title={
+                d.reviews
+                  ? `${formatDate(d.day)}: ответов ${d.reviews}, верно ${Math.round((d.correct / d.reviews) * 100)}%, новых правил ${d.intro}`
+                  : `${formatDate(d.day)}: не занимался`
+              }
+            >
+              <div className="vocab-day-bar" style={{ height: `${(d.reviews / max) * 100}%` }} />
             </div>
           ))}
         </div>
-      )}
-      {notStarted > 0 && (
-        <p className="small muted">
-          Ещё не начато: {notStarted} {plural(notStarted, 'правило', 'правила', 'правил')} — войдут по {enrollment.newPerDay} в день.
-        </p>
-      )}
-
-      {stats.traps.length > 0 && (
-        <div>
-          <div className="small muted">На чём ошибается (30 дней)</div>
-          <ul className="gm-traps">
-            {stats.traps.slice(0, 6).map((t) => (
-              <li key={t.trap}>
-                <span>{trapLabel(t.trap)}</span>
-                <b>{t.n}</b>
-              </li>
-            ))}
-          </ul>
+        <div className="vocab-days-axis">
+          <span>{formatDate(days[0].day)}</span>
+          <span>сегодня</span>
         </div>
-      )}
-
-      <div className="vocab-days" aria-label={`Ответы по дням за ${DAYS} дней`}>
-        {days.map((d) => (
-          <div
-            key={d.day}
-            className={`vocab-day ${d.reviews ? '' : 'vocab-day-empty'}`}
-            title={
-              d.reviews
-                ? `${formatDate(d.day)}: ответов ${d.reviews}, верно ${Math.round((d.correct / d.reviews) * 100)}%, новых правил ${d.intro}`
-                : `${formatDate(d.day)}: не занимался`
-            }
-          >
-            <div className="vocab-day-bar" style={{ height: `${(d.reviews / max) * 100}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="vocab-days-axis">
-        <span>{formatDate(days[0].day)}</span>
-        <span>сегодня</span>
-      </div>
-      <p className="small muted">
-        {reviews > 0
-          ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%.`
-          : stats.last_reviewed_at
-            ? `За ${DAYS} дней не занимался. Последняя тренировка: ${new Date(stats.last_reviewed_at).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}.`
-            : 'Ученик ещё не открывал тренер.'}
-      </p>
-    </div>
+        <p className="small muted">
+          {reviews > 0
+            ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%.`
+            : stats.last_reviewed_at
+              ? `За ${DAYS} дней не занимался. Последняя тренировка: ${new Date(stats.last_reviewed_at).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}.`
+              : 'Ученик ещё не открывал тренер.'}
+        </p>
+    </>
   )
 }

@@ -1,4 +1,12 @@
-import { KNOWN_STAGE, STAGE_DAYS, nextStage, type GrammarBackend, type GrammarRule, type GrammarSession } from '../grammar'
+import {
+  KNOWN_STAGE,
+  STAGE_DAYS,
+  nextStage,
+  type GrammarBackend,
+  type GrammarRule,
+  type GrammarSession,
+  type GrammarStats,
+} from '../grammar'
 import { dayStart } from '../vocab'
 
 // Демо тренера грамматики (#/grammar/demo): три правила Boundaries с собственными примерами,
@@ -219,33 +227,50 @@ const RULES: GrammarRule[] = [
 interface Progress {
   stage: number
   reps: number
+  lapses: number
   due: number
   introduced: number
 }
 
+/** Запись журнала ответов (как grammar_reviews) — для экрана «глазами преподавателя». */
+interface LogEntry {
+  t: number
+  rule: string
+  exercise: string
+  correct: boolean
+  trap?: string
+  structureOk?: boolean
+  ms: number
+}
+
 interface DemoState {
   progress: Record<string, Progress>
-  /** Времена ответов (мс) — для счётчика «сегодня» */
-  reviews: number[]
+  log: LogEntry[]
   /** Последние показанные упражнения по правилам */
   recent: Record<string, string[]>
 }
 
-const KEY = 'sat-grammar-demo'
+const KEY = 'sat-grammar-demo-v2'
 const NEW_PER_DAY = 3
 const DAY = 86_400_000
+const HOUR = 3_600_000
 
 function load(): DemoState {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? '') as DemoState
-    if (s && typeof s.progress === 'object' && Array.isArray(s.reviews)) return { ...s, recent: s.recent ?? {} }
+    if (s && typeof s.progress === 'object' && Array.isArray(s.log)) return { ...s, recent: s.recent ?? {} }
   } catch {
     // нет сохранённого прогресса
   }
-  return { progress: {}, reviews: [], recent: {} }
+  return { progress: {}, log: [], recent: {} }
 }
 
 const save = (s: DemoState) => localStorage.setItem(KEY, JSON.stringify(s))
+
+const isoDay = (t: number) => {
+  const d = new Date(t)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export const grammarDemoBackend: GrammarBackend = {
   async session(): Promise<GrammarSession> {
@@ -258,6 +283,9 @@ export const grammarDemoBackend: GrammarBackend = {
       return p && p.due <= now ? [{ ...rule, stage: p.stage, reps: p.reps, recent: s.recent[rule.id] ?? [] }] : []
     })
     const fresh = RULES.filter((rule) => !s.progress[rule.id]).slice(0, Math.max(0, NEW_PER_DAY - introduced))
+    const days = new Set(s.log.filter((e) => e.exercise !== 'intro').map((e) => isoDay(e.t)))
+    let streak = 0
+    for (let d = days.has(isoDay(now)) ? now : now - DAY; days.has(isoDay(d)); d -= DAY) streak++
     return {
       student: null,
       new_per_day: NEW_PER_DAY,
@@ -267,29 +295,127 @@ export const grammarDemoBackend: GrammarBackend = {
         total: RULES.length,
         started: Object.keys(s.progress).length,
         known: Object.values(s.progress).filter((p) => p.stage >= KNOWN_STAGE).length,
-        reviews_today: s.reviews.filter((t) => t >= start).length,
-        streak: s.reviews.some((t) => t >= start - DAY) ? 1 : 0,
+        reviews_today: s.log.filter((e) => e.t >= start && e.exercise !== 'intro').length,
+        streak,
       },
     }
   },
 
-  async review({ ruleId, itemId, exercise, correct }) {
+  async review({ ruleId, itemId, exercise, correct, trap, structureOk, ms }) {
     const s = load()
     const now = Date.now()
     const p = s.progress[ruleId]
     if (itemId) s.recent[ruleId] = [itemId, ...(s.recent[ruleId] ?? []).filter((id) => id !== itemId)].slice(0, 40)
     if (!p || exercise === 'intro') {
-      if (!p) s.progress[ruleId] = { stage: 1, reps: 0, due: now, introduced: now }
+      if (!p) s.progress[ruleId] = { stage: 1, reps: 0, lapses: 0, due: now, introduced: now }
     } else if (exercise !== 'warmup') {
       const stage = nextStage(p.stage, correct)
       s.progress[ruleId] = {
         ...p,
         stage,
         reps: p.reps + 1,
-        due: correct ? now + STAGE_DAYS[stage] * DAY - 6 * 3_600_000 : now,
+        lapses: p.lapses + (correct ? 0 : 1),
+        due: correct ? now + STAGE_DAYS[stage] * DAY - 6 * HOUR : now,
       }
     }
-    if (exercise !== 'intro') s.reviews.push(now)
+    const intro = exercise === 'intro' || !p
+    s.log.push({
+      t: now,
+      rule: ruleId,
+      exercise: intro ? 'intro' : exercise,
+      correct: intro || correct,
+      ...(!intro && !correct && trap && { trap }),
+      ...(!intro && structureOk !== undefined && { structureOk }),
+      ms: Math.round(ms),
+    })
     save(s)
   },
+}
+
+// --- Управление демо ---------------------------------------------------------------
+
+/** Начать демо с нуля. */
+export function resetGrammarDemo() {
+  localStorage.removeItem(KEY)
+}
+
+/**
+ * «Прошла неделя»: все правила уже введены, у каждого своя ступень, и всем пора на повторение —
+ * так видно режим «как на экзамене» (шаг «что слева и справа» и правило без подписи).
+ * В журнал добавляется история за неделю, чтобы экран репетитора не был пустым.
+ */
+export function fastForwardGrammarDemo() {
+  const now = Date.now()
+  const stages = [3, 4, 5]
+  const s: DemoState = { progress: {}, log: [], recent: {} }
+  RULES.forEach((rule, i) => {
+    s.progress[rule.id] = { stage: stages[i % stages.length], reps: 4 + i, lapses: i === 0 ? 2 : i, due: now - HOUR, introduced: now - 7 * DAY }
+  })
+  // история: несколько ответов в день за прошедшую неделю, с типичными ошибками
+  const traps = ['comma-splice', 'unpaired', 'comma-splice', 'false-insert', 'adverb-comma', 'run-on']
+  for (let d = 7; d >= 1; d--) {
+    if (d === 4) continue // один пропущенный день
+    RULES.forEach((rule, i) => {
+      const t = now - d * DAY + i * 60_000
+      if (d === 7) s.log.push({ t, rule: rule.id, exercise: 'intro', correct: true, ms: 40_000 })
+      const correct = (d + i) % 3 !== 0
+      s.log.push({
+        t: t + 20_000,
+        rule: rule.id,
+        exercise: d >= 6 ? 'cued' : 'sat',
+        correct,
+        ...(!correct && { trap: traps[(d + i) % traps.length] }),
+        ...(d < 6 && { structureOk: (d + i) % 4 !== 0 }),
+        ms: 25_000,
+      })
+    })
+  }
+  save(s)
+}
+
+/** То, что репетитор увидел бы в карточке ученика (тот же расчёт, что в grammar_stats). */
+export function grammarDemoStats(): GrammarStats {
+  const s = load()
+  const now = Date.now()
+  const since15 = now - 15 * DAY
+  const since30 = now - 30 * DAY
+  const byDay = new Map<string, GrammarStats['days'][number]>()
+  for (const e of s.log) {
+    if (e.t < since15) continue
+    const day = isoDay(e.t)
+    const d = byDay.get(day) ?? { day, reviews: 0, correct: 0, intro: 0, ms: 0 }
+    if (e.exercise === 'intro') d.intro += 1
+    else {
+      d.reviews += 1
+      if (e.correct) d.correct += 1
+    }
+    d.ms += e.ms
+    byDay.set(day, d)
+  }
+  const traps = new Map<string, number>()
+  for (const e of s.log) if (e.t >= since30 && e.trap) traps.set(e.trap, (traps.get(e.trap) ?? 0) + 1)
+  const structure = s.log.filter((e) => e.t >= since30 && e.structureOk !== undefined)
+  const progress = Object.values(s.progress)
+  return {
+    rules_total: RULES.length,
+    started: progress.length,
+    known: progress.filter((p) => p.stage >= KNOWN_STAGE).length,
+    due: progress.filter((p) => p.due <= now).length,
+    last_reviewed_at: s.log.length ? new Date(s.log[s.log.length - 1].t).toISOString() : null,
+    days: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
+    rules: RULES.map((r) => {
+      const p = s.progress[r.id]
+      return {
+        id: r.id,
+        skill: r.skill,
+        title: r.title,
+        stage: p?.stage ?? null,
+        due_at: p ? new Date(p.due).toISOString() : null,
+        lapses: p?.lapses ?? null,
+        reps: p?.reps ?? null,
+      }
+    }),
+    traps: [...traps.entries()].map(([trap, n]) => ({ trap, n })).sort((a, b) => b.n - a.n),
+    structure: { total: structure.length, correct: structure.filter((e) => e.structureOk).length },
+  }
 }
