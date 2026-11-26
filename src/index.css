@@ -41,6 +41,11 @@
   --shadow-md: 0 4px 16px rgba(17, 19, 24, 0.06);
   --focus: 0 0 0 3px rgba(91, 91, 214, 0.2);
 
+  /* Движение: короткие плавные отклики на наведение, нажатие и появление */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --med: 200ms;
+
   --font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   font: 14px/1.5 var(--font);
@@ -120,6 +125,21 @@ h2 {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 14px;
+}
+
+/* CRM плотнее страниц ученика: свой базовый размер и заголовки.
+   Страницы ученика (решение, кабинет, тренажёры) остаются на 14px — rem там не меняется. */
+.layout {
+  font-size: 13px;
+}
+
+.layout h1 {
+  font-size: 20px;
+}
+
+.layout h2 {
+  font-size: 14px;
+  margin-bottom: 12px;
 }
 
 a {
@@ -240,9 +260,74 @@ svg.lucide {
   border-top: 1px solid var(--border);
 }
 
+/* Верх панели: логотип и кнопка «свернуть/развернуть» */
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 16px;
+}
+
+.sidebar-top .brand {
+  min-width: 0;
+  padding: 4px 8px;
+}
+
+.sidebar-toggle {
+  flex: none;
+  color: var(--muted);
+}
+
+.sidebar-toggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Свёрнутая панель: только иконки (на узких экранах панель и так сверху) */
+@media (min-width: 901px) {
+  .layout.is-collapsed {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .is-collapsed .sidebar {
+    padding: 14px 10px;
+  }
+
+  .is-collapsed .sidebar-top {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .is-collapsed .sidebar-top .brand {
+    padding: 4px 0;
+  }
+
+  .is-collapsed .brand > span:last-child,
+  .is-collapsed .nav-label,
+  .is-collapsed .nav a span,
+  .is-collapsed .theme-label,
+  .is-collapsed .account-text {
+    display: none;
+  }
+
+  .is-collapsed .nav a,
+  .is-collapsed .theme-toggle,
+  .is-collapsed .sync-local {
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .is-collapsed .account {
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0;
+  }
+}
+
 .main {
   min-width: 0;
-  padding: 28px 40px 64px;
+  padding: 24px 32px 56px;
 }
 
 .page {
@@ -250,7 +335,7 @@ svg.lucide {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .page.narrow {
@@ -288,7 +373,7 @@ svg.lucide {
 }
 
 .h1-count {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--faint);
 }
@@ -299,7 +384,7 @@ svg.lucide {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: 16px 18px;
   box-shadow: var(--shadow-sm);
   min-width: 0;
 }
@@ -338,8 +423,8 @@ svg.lucide {
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
+  gap: 4px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -348,13 +433,13 @@ svg.lucide {
 
 .stat-label {
   order: -1;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--muted);
 }
 
 .stat-value {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -362,13 +447,15 @@ svg.lucide {
 }
 
 .stat-value.small-value {
-  font-size: 17px;
-  padding: 5px 0 4px;
+  font-size: 15px;
+  padding: 4px 0 3px;
 }
 
+/* Карточки не тянутся по высоте соседней — без пустых «хвостов» */
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  align-items: start;
   gap: 16px;
 }
 
@@ -379,7 +466,7 @@ svg.lucide {
 }
 
 .small {
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .notes {
@@ -432,8 +519,8 @@ svg.lucide {
 .list li {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 0;
+  gap: 1px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -456,7 +543,7 @@ svg.lucide {
 }
 
 .list .muted {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .dl {
@@ -479,13 +566,13 @@ svg.lucide {
 .btn {
   font: inherit;
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border-strong);
   background: var(--surface);
@@ -534,7 +621,7 @@ svg.lucide {
 .btn-small {
   height: 28px;
   padding: 0 10px;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .icon-btn {
@@ -585,8 +672,8 @@ svg.lucide {
 .input {
   font: inherit;
   width: 100%;
-  height: 36px;
-  padding: 0 11px;
+  height: 32px;
+  padding: 0 10px;
   border-radius: var(--radius);
   border: 1px solid var(--border-strong);
   background: var(--surface);
@@ -646,11 +733,11 @@ select.input {
   align-items: center;
   gap: 8px;
   align-self: flex-end;
-  height: 36px;
+  height: 32px;
 }
 
 .field.checkbox > span {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -729,7 +816,7 @@ input[type='checkbox'] {
 
 .chip {
   font: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
@@ -823,13 +910,13 @@ button.badge {
 .table th,
 .table td {
   text-align: left;
-  padding: 11px 16px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .table th {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--muted);
   background: var(--surface-2);
@@ -1202,7 +1289,7 @@ tr.clickable:hover td {
 
 .folder-name {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .folder-chevron {
@@ -1275,22 +1362,6 @@ tr.clickable:hover td {
 
 /* ---------- Questions by category: compact rows ---------- */
 
-.qlegend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: -6px;
-}
-
-.lvl-dot {
-  display: inline-block;
-  width: 10px;
-  height: 3px;
-  border-radius: 2px;
-  margin-left: 8px;
-}
-
 .lvl-easy {
   --lvl: var(--ok);
 }
@@ -1307,7 +1378,6 @@ tr.clickable:hover td {
   --lvl: transparent;
 }
 
-.lvl-dot,
 .diffbar > span {
   background: var(--lvl);
 }
@@ -1357,7 +1427,7 @@ tr.clickable:hover td {
 
 .qrow {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 80px;
+  grid-template-columns: 250px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   padding: 7px 20px;
@@ -1376,12 +1446,6 @@ tr.clickable:hover td {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.qrow-count {
-  text-align: right;
-  font-size: 12.5px;
-  color: var(--muted);
 }
 
 .set-pill {
@@ -1460,7 +1524,7 @@ tr.clickable:hover td {
 
 @media (max-width: 760px) {
   .qrow {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     padding: 8px 14px;
   }
 
@@ -1483,6 +1547,8 @@ tr.clickable:hover td {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
+    /* верхняя панель — по высоте содержимого, а не растянута на пол-экрана */
+    grid-template-rows: auto 1fr;
   }
 
   .sidebar {
@@ -1498,8 +1564,17 @@ tr.clickable:hover td {
     overflow-x: auto;
   }
 
-  .brand {
+  .brand,
+  .sidebar-top .brand {
     padding: 0 6px 0 0;
+  }
+
+  .sidebar-top {
+    padding-bottom: 0;
+  }
+
+  .sidebar-toggle {
+    display: none;
   }
 
   .brand small,
@@ -1540,11 +1615,11 @@ tr.clickable:hover td {
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .page-head h1 {
-    font-size: 20px;
+    font-size: 18px;
   }
 }
 
@@ -1828,5 +1903,85 @@ a.guide-row:hover {
 
   .guide-body {
     padding: 4px 18px 20px;
+  }
+}
+
+/* =========================================================================
+   Движение: плавные отклики на наведение, нажатие и появление.
+   Стоит в конце файла, чтобы перекрывать отдельные transition выше.
+   Если в системе включено «уменьшить движение» — анимации выключены.
+   ========================================================================= */
+
+.nav a,
+.theme-toggle,
+.icon-btn,
+.btn,
+.chip,
+.badge,
+.link-btn,
+.set-pill,
+.folder,
+.input,
+.list li > a,
+.back,
+.breadcrumbs a,
+tr.clickable td,
+.qrow,
+.guide-row,
+.item-actions {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
+}
+
+/* Нажатие: кнопка чуть «проседает» */
+.btn:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.chip:active,
+button.badge:active,
+.set-pill:active,
+.theme-toggle:active {
+  transform: scale(0.96);
+  transition-duration: 60ms;
+}
+
+/* Папки при наведении чуть приподнимаются */
+.folder:hover {
+  transform: translateY(-1px);
+}
+
+/* Появление: страница и раскрывающиеся блоки въезжают мягко */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page,
+.qdetail,
+.lesson-form,
+.banner {
+  animation: rise-in var(--med) var(--ease) both;
+}
+
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }

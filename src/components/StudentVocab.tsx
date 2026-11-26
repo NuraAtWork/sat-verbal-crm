@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { formatDate } from '../dates'
+import { formatDate, formatTimestamp } from '../dates'
 import { supabase } from '../supabase'
 import type { Student } from '../types'
 import { useStore } from '../useStore'
@@ -240,7 +240,7 @@ export function StudentVocab({ student }: { student: Student }) {
         {reviews > 0
           ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%, ${timeNote}.`
           : stats.last_reviewed_at
-            ? `За ${DAYS} дней не занимался. Последняя тренировка: ${new Date(stats.last_reviewed_at).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}.`
+            ? `За ${DAYS} дней не занимался. Последняя тренировка: ${formatTimestamp(stats.last_reviewed_at)}.`
             : 'Ученик ещё не открывал тренер.'}
       </p>
 

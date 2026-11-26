@@ -100,7 +100,7 @@ export function Dashboard() {
                 <li key={s.id}>
                   <Link to={`/students/${s.id}`}>{s.name}</Link>
                   <span className="muted">
-                    {formatDate(s.examDate)} · {describeExam(s.examDate)}
+                    {describeExam(s.examDate)} · {formatDate(s.examDate)}
                   </span>
                 </li>
               ))}

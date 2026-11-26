@@ -12,7 +12,12 @@ export function storedTheme(): Theme {
 }
 
 export function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme
+  const root = document.documentElement
+  // На миг выключаем плавные переходы, иначе часть элементов «доезжает» до новых цветов позже остальных
+  root.classList.add('theme-switching')
+  root.dataset.theme = theme
+  void root.offsetHeight
+  requestAnimationFrame(() => root.classList.remove('theme-switching'))
   try {
     localStorage.setItem(KEY, theme)
   } catch {
