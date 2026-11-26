@@ -21,13 +21,19 @@ function parseIso(iso: string): Date {
   return new Date(y, m - 1, d)
 }
 
+/** «17 дек.»; год — только если он не текущий: «14 янв. 2027» (без канцелярского «г.»). */
 export function formatDate(iso: string): string {
   if (!iso) return '—'
-  return parseIso(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  const d = parseIso(iso)
+  const otherYear = d.getFullYear() !== new Date().getFullYear()
+  return d
+    .toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', ...(otherYear && { year: 'numeric' }) })
+    .replace(/\s*г\.$/, '')
+}
+
+/** То же для момента времени (ISO с часами) — по локальной дате. */
+export function formatTimestamp(ts: string): string {
+  return ts ? formatDate(toIsoDate(new Date(ts))) : '—'
 }
 
 /** Сколько дней от сегодня до даты (отрицательное — дата в прошлом). */

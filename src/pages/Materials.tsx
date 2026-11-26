@@ -19,7 +19,7 @@ import { plural } from '../dates'
 import { newId } from '../db'
 import { ACTIVE_MATERIAL_KINDS, DOMAINS, MATERIAL_KIND_LABELS, SKILLS, safeUrl } from '../sat'
 import type { Material, MaterialKind } from '../types'
-import { CAN_EDIT_LIBRARY } from '../permissions'
+import { CAN_EDIT_LIBRARY, SHOW_GUIDES } from '../permissions'
 import { useStore } from '../useStore'
 import { difficultyOf, setNumber, sortSets, type Difficulty } from '../materials'
 
@@ -74,12 +74,15 @@ const FOLDERS: Folder[] = [
   },
 ]
 
+/** Папки, которые сейчас видны в интерфейсе. */
+const visibleFolder = (f: Folder) => SHOW_GUIDES || f.id !== 'guides'
+
 /** Список папок. «Другие материалы» показываем, только если там что-то есть. */
 export function Materials() {
   const { db } = useStore()
-  const folders = FOLDERS.map((f) => ({ ...f, items: db.materials.filter(f.match) })).filter(
-    (f) => f.addKind !== null || f.items.length > 0,
-  )
+  const folders = FOLDERS.filter(visibleFolder)
+    .map((f) => ({ ...f, items: db.materials.filter(f.match) }))
+    .filter((f) => f.addKind !== null || f.items.length > 0)
 
   return (
     <div className="page">
@@ -116,7 +119,7 @@ export function MaterialFolder() {
   const [editing, setEditing] = useState<Editing>(null)
 
   const folder = FOLDERS.find((f) => f.id === folderId)
-  if (!folder) return <Navigate to="/materials" replace />
+  if (!folder || !visibleFolder(folder)) return <Navigate to="/materials" replace />
 
   const items = db.materials.filter(folder.match).sort(byTitle)
   const editingMaterial = editing?.id ? db.materials.find((m) => m.id === editing.id) : undefined
@@ -137,7 +140,8 @@ export function MaterialFolder() {
       </nav>
       <div className="page-head">
         <h1>
-          {folder.title} <span className="muted h1-count">{items.length}</span>
+          {folder.title}
+          {folder.id !== 'questions' && <span className="muted h1-count"> {items.length}</span>}
         </h1>
         {CAN_EDIT_LIBRARY && addKind && addKind !== 'guide' && !editing && (
           <div className="row">
@@ -168,15 +172,7 @@ export function MaterialFolder() {
       {folder.id === 'guides' ? (
         <GuideRows items={items} />
       ) : folder.id === 'questions' ? (
-        <>
-          <div className="qlegend muted small">
-            Номер — это сет, полоска снизу — преобладающая сложность:
-            <span className="lvl-dot lvl-easy" /> Easy
-            <span className="lvl-dot lvl-medium" /> Medium
-            <span className="lvl-dot lvl-hard" /> Hard
-          </div>
-          <QuestionRows items={items} onEdit={onEdit} onRemove={onRemove} />
-        </>
+        <QuestionRows items={items} onEdit={onEdit} onRemove={onRemove} />
       ) : items.length === 0 ? (
         <p className="muted folder-empty">
           Папка пуста. Добавьте прошлые экзамены и пробные тесты — ссылкой на файл или страницу.
@@ -331,9 +327,6 @@ function QuestionRow(props: {
               </button>
             )
           })}
-        </div>
-        <div className="qrow-count">
-          {props.sets.length ? `${props.sets.length} ${plural(props.sets.length, 'сет', 'сета', 'сетов')}` : '—'}
         </div>
       </div>
       {current && (

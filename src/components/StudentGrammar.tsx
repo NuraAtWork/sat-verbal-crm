@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { formatDate } from '../dates'
+import { formatDate, formatTimestamp } from '../dates'
 import {
   MAX_STAGE,
   SKILL_TITLES,
@@ -269,7 +269,7 @@ export function GrammarStatsView({ stats, newPerDay }: { stats: GrammarStats; ne
           {reviews > 0
             ? `За ${DAYS} дней: занимался ${activeDays} ${plural(activeDays, 'день', 'дня', 'дней')}, ответов ${reviews}, верно ${Math.round((correct / reviews) * 100)}%.`
             : stats.last_reviewed_at
-              ? `За ${DAYS} дней не занимался. Последняя тренировка: ${new Date(stats.last_reviewed_at).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}.`
+              ? `За ${DAYS} дней не занимался. Последняя тренировка: ${formatTimestamp(stats.last_reviewed_at)}.`
               : 'Ученик ещё не открывал тренер.'}
         </p>
     </>

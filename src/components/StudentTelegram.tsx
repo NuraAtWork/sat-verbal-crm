@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { formatTimestamp } from '../dates'
 import {
   TELEGRAM_BOT,
   botLink,
@@ -116,7 +117,7 @@ export function StudentTelegram({ student }: { student: Student }) {
         <p>
           Привязан{link.tgUsername ? ` @${link.tgUsername}` : ''}
           {link.tgName && <span className="muted"> ({link.tgName})</span>}
-          <span className="muted"> · с {new Date(link.linkedAt).toLocaleDateString('ru-RU', { dateStyle: 'medium' })}</span>
+          <span className="muted"> · с {formatTimestamp(link.linkedAt)}</span>
         </p>
       ) : (
         link.code && (
